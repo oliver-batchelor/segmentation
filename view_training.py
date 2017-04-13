@@ -13,18 +13,19 @@ parser.add_argument('--batch-size', type=int, default=8, metavar='N',
 args = parser.parse_args()
 
 args.num_workers = 1
-train_loader, train_dataset = dataset.make_loader(args)
+train_loader, train_dataset = dataset.training(args)
 
-
+colorizer = index_map.colorizer_t(255)
 
 
 def overlay_labels(image, labels):
-    colorizer = index_map.colorizer_t(255)
-    labels_color = tensor.to_image_t(colorizer(labels))
+    dim = (image.size(2), image.size(1))
 
+    labels_color = tensor.to_image_t(colorizer(labels)).resize(dim, Image.NEAREST)
     labels = labels.clamp_(0, 1).mul(255)
 
-    mask = tensor.to_image(labels.squeeze(0), 'L')
+
+    mask = tensor.to_image(labels.squeeze(0), 'L').resize(dim, Image.NEAREST)
     image = tensor.to_image_t(image)
 
     return Image.composite(labels_color, image, mask)
@@ -32,8 +33,10 @@ def overlay_labels(image, labels):
 
 
 for batch_idx, (data, target) in enumerate(train_loader):
+    data = tensor.tile_batch(data)
+    target = tensor.tile_batch(target)
 
-    overlay = overlay_labels(tensor.tile_batch(data), tensor.tile_batch(target))
+    overlay = overlay_labels(data, target)
     overlay.show()
 
     input("next:")

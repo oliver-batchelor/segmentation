@@ -29,5 +29,6 @@ def random_crop(min_crop, max_crop, input_size, target_size):
         image = image.crop(region).resize(input_size, Image.BICUBIC)
         target = target.crop(region).resize(target_size, Image.NEAREST)
 
-        return tensor.to_tensor_t(image), tensor.to_tensor_t(target)
+
+        return tensor.to_tensor_t(image).float(), tensor.to_tensor(target).squeeze(2).long()
     return crop

@@ -5,37 +5,47 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
+import os
+
 import model
 import dataset, arguments
 
 # Training settings
 
-args = args.get_arguments()
+args = arguments.get_arguments()
+
+args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+torch.manual_seed(args.seed)
+if args.cuda:
+    torch.cuda.manual_seed(args.seed)
 
 model = model.Segmenter(2)
 if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-training = make_trainer(args)
+train_loader, train_dataset = dataset.training(args)
 
 def train(epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(training.loader):
+
+    for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
 
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
+
         loss = F.nll_loss(output, target)
 
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(training.dataset),
-                100. * batch_idx / len(training.loader), loss.data[0]))
+                epoch, batch_idx * len(data), len(train_dataset),
+                100. * batch_idx / len(train_loader), loss.data[0]))
 
 # def test(epoch):
 #     model.eval()
@@ -57,5 +67,13 @@ def train(epoch):
 #         100. * correct / len(test_loader.dataset)))
 
 
+
 for epoch in range(1, args.epochs + 1):
     train(epoch)
+
+    filename = 'models/epoch_%d.pth' % epoch
+    print('saving %s' % filename)
+    torch.save(model.state_dict(), filename)
+
+    os.remove('model.pth')
+    os.symlink(filename, 'model.pth')
