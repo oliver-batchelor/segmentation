@@ -14,25 +14,27 @@ class Convs(nn.Module):
 
     def forward(self, inputs):
         outputs = F.relu(self.conv1(inputs))
-        outputs = F.relu(self.conv2(outputs))
-
-        return outputs
+        return F.relu(self.conv2(outputs))
 
 
 class Encode(nn.Module):
 
     def __init__(self, in_size, out_size):
         super().__init__()
-
         self.conv = Convs(in_size, out_size)
-        self.down = nn.MaxPool2d(2, 2)
 
     def forward(self, inputs):
-        outputs1 = self.conv(inputs)
-        outputs2 = self.down(outputs1)
+        return F.max_pool2d(self.conv(inputs), 2, 2)
 
 
-        return outputs2
+def sub(xs, ys):
+     return tuple (x - y for x, y in zip(xs, ys))
+
+
+def match_size(t, sized):
+    assert(t.dim() == sized.dim())
+    return F.pad(t, sub(sized.size(), t.size()))
+
 
 
 class Decode(nn.Module):
@@ -45,7 +47,9 @@ class Decode(nn.Module):
 
     def forward(self, skip, inputs):
         upscaled = self.up(inputs)
-        return self.conv(torch.cat([upscaled, skip], 1))
+        padded = match_size(upscaled, skip)
+
+        return self.conv(torch.cat([padded, skip], 1))
 
 
 class Segmenter(nn.Module):
@@ -66,8 +70,10 @@ class Segmenter(nn.Module):
         encode1 = self.encode1(inputs)
         encode2 = self.encode2(encode1)
         encode3 = self.encode3(encode2)
-        center = self.center(encode3)
-        decode3 = self.decode3(encode3, center)
+        centre = self.center(encode3)
+
+
+        decode3 = self.decode3(encode3, centre)
         decode2 = self.decode2(encode2, decode3)
         decode1 = self.decode1(encode1, decode2)
         return F.log_softmax(self.final(decode1))

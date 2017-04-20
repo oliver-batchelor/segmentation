@@ -18,6 +18,11 @@ def random_region(img, size):
 
     return (x1, y1, x1 + tw, y1 + th)
 
+def to_tensor(image):
+    return tensor.to_tensor_t(image).float().mul(1/255)
+
+def to_target(target):
+    return tensor.to_tensor(target).squeeze(2).long()
 
 def random_crop(min_crop, max_crop, input_size, target_size):
     def crop(image, target):
@@ -29,6 +34,5 @@ def random_crop(min_crop, max_crop, input_size, target_size):
         image = image.crop(region).resize(input_size, Image.BICUBIC)
         target = target.crop(region).resize(target_size, Image.NEAREST)
 
-
-        return tensor.to_tensor_t(image).float(), tensor.to_tensor(target).squeeze(2).long()
+        return to_tensor(image), to_target(target)
     return crop

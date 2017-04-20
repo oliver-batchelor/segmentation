@@ -30,8 +30,7 @@ def find_files(dir, use_image):
 
 class FlatFolder(data.Dataset):
 
-    def __init__(self, root, use_image = image_with_mask(imageExtensions), transform=None,
-                 loader= loaders.mask_loader):
+    def __init__(self, root, loader, use_image = image_with_mask(imageExtensions), transform=None):
 
         imgs = find_files(root, use_image)
         if len(imgs) == 0:

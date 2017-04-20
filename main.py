@@ -1,5 +1,6 @@
 from __future__ import print_function
 import torch
+import sys
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -7,10 +8,13 @@ from torch.autograd import Variable
 
 import os
 
-import model
+from model import Segmenter
 import dataset, arguments
 
+from tools import model_io
+
 # Training settings
+model_dir = 'models'
 
 args = arguments.get_arguments()
 
@@ -20,7 +24,7 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-model = model.Segmenter(2)
+model = Segmenter(2)
 if args.cuda:
     model.cuda()
 
@@ -68,12 +72,16 @@ def train(epoch):
 
 
 
-for epoch in range(1, args.epochs + 1):
+
+start_epoch = 1
+
+if args.load_model:
+    epoch, state = model_io.load(model_dir)
+    model.load_state_dict(state)
+
+for epoch in range(start_epoch, start_epoch + args.epochs):
+
     train(epoch)
+    state = (epoch, model.state_dict())
 
-    filename = 'models/epoch_%d.pth' % epoch
-    print('saving %s' % filename)
-    torch.save(model.state_dict(), filename)
-
-    os.remove('model.pth')
-    os.symlink(filename, 'model.pth')
+    model_io.save(model_dir, epoch, state)

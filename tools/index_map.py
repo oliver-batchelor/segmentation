@@ -4,6 +4,8 @@ import colorsys
 import random
 import math
 
+from tools import tensor
+from PIL import Image
 
 
 def make_color_map(n):
@@ -24,12 +26,16 @@ def make_color_map(n):
 
 
 def colorize(image, color_map):
-    assert(image.size(2) == 1)
+    assert(image.dim() == 3 and image.size(2) == 1)
 
     flat_indices = image.view(image.nelement()).long()
     rgb = color_map.index(flat_indices)
 
     return rgb.view(image.size(0), image.size(1), 3)
+
+def colorize_t(image, color_map):
+    assert(image.dim() == 3 and image.size(0) == 1)
+    return colorize(image.permute(1, 2, 0), color_map).permute(2, 0, 1)
 
 def colorizer(n = 255):
 
@@ -39,12 +45,23 @@ def colorizer(n = 255):
 def colorizer_t(n = 255):
 
     color_map = make_color_map(n)
-    def f(image):
-        assert(image.dim() == 3 and image.size(0) == 1)
-        return colorize(image.permute(1, 2, 0), color_map).permute(2, 0, 1)
+    return lambda image: colorize_t(image, color_map)
 
-    return f
+def overlay_labels(image, labels, color_map):
 
+    assert(image.dim() == 3 and image.size(0) == 3)
 
-def display_labels(image, labels):
-    print(image, labels)
+    if(labels.dim() == 2):
+        labels = labels.view(1, *labels.size())
+
+    assert(labels.dim() == 3 and labels.size(0) == 1)
+
+    dim = (image.size(2), image.size(1))
+
+    labels_color = tensor.to_image_t(colorize_t(labels, color_map)).resize(dim, Image.NEAREST)
+    labels = labels.clamp_(0, 1).mul(255)
+
+    mask = tensor.to_image(labels.squeeze(0).byte(), 'L').resize(dim, Image.NEAREST)
+    image = tensor.to_image_t(image.mul(255).byte())
+
+    return Image.composite(labels_color, image, mask)
