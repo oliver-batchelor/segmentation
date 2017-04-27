@@ -11,7 +11,7 @@ import os
 from model import Segmenter
 import dataset, arguments
 
-from tools import model_io
+from tools import model_io, index_map
 
 # Training settings
 model_dir = 'models'
@@ -43,6 +43,17 @@ def train(epoch):
         output = model(data)
 
         loss = F.nll_loss(output, target)
+
+
+        if args.show_training:
+            _, inds = output.data.cpu().max(1)
+            inds = inds.byte().squeeze(1)
+
+            overlay = index_map.overlay_batches(data.data.cpu(), inds)
+            overlay.show()
+
+            input("next:")
+
 
         loss.backward()
         optimizer.step()

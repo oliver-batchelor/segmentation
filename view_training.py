@@ -18,12 +18,5 @@ train_loader, train_dataset = dataset.training(args)
 color_map = index_map.make_color_map(255)
 
 for batch_idx, (data, target) in enumerate(train_loader):
-    data = tensor.tile_batch(data)
-    target = target.view(target.size(0), 1, target.size(1), target.size(2))
-    target = tensor.tile_batch(target)
-
-
-    overlay = index_map.overlay_labels(data, target, color_map)
-    overlay.show()
-
+    index_map.overlay_batches(data, target).show()
     input("next:")

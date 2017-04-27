@@ -11,10 +11,13 @@ class Convs(nn.Module):
 
         self.conv1 = nn.Conv2d(in_size, out_size, 3, 1, 1)
         self.conv2 = nn.Conv2d(out_size, out_size, 3, 1, 1)
+        #self.norm = nn.BatchNorm2d(in_size)
 
     def forward(self, inputs):
+        #outputs = F.relu(self.conv1(self.norm(inputs)))
         outputs = F.relu(self.conv1(inputs))
         return F.relu(self.conv2(outputs))
+
 
 
 class Encode(nn.Module):

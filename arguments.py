@@ -24,11 +24,10 @@ def get_arguments():
     parser.add_argument('--load_model', action = 'store_true', default=False,
                         help='load progress from previous training')
 
+    parser.add_argument('--show', action = 'store_true', default=False,
+                        help='view training output')
 
     parser.add_argument('--num-workers', type=int, default=1, metavar='W',
                         help='number of workers used to process dataset')
 
     return parser.parse_args()
-
-
-    

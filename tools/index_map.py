@@ -23,7 +23,7 @@ def make_color_map(n):
     p = torch.range(0, n - 1).long().view(d, -1).t().contiguous().view(n)
     return colors.index(p)
 
-
+default_map = make_color_map(255)
 
 def colorize(image, color_map):
     assert(image.dim() == 3 and image.size(2) == 1)
@@ -47,7 +47,10 @@ def colorizer_t(n = 255):
     color_map = make_color_map(n)
     return lambda image: colorize_t(image, color_map)
 
-def overlay_labels(image, labels, color_map):
+
+
+
+def overlay_labels(image, labels, color_map = default_map):
 
     assert(image.dim() == 3 and image.size(0) == 3)
 
@@ -65,3 +68,14 @@ def overlay_labels(image, labels, color_map):
     image = tensor.to_image_t(image.mul(255).byte())
 
     return Image.composite(labels_color, image, mask)
+
+
+
+def overlay_batches(images, target, cols = 6, color_map = default_map):
+
+    images = tensor.tile_batch(images, cols)
+    target = target.view(target.size(0), 1, target.size(1), target.size(2))
+
+    target = tensor.tile_batch(target, cols)
+
+    return overlay_labels(images, target, color_map)
