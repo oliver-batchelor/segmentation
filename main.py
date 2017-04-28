@@ -12,6 +12,7 @@ from model import Segmenter
 import dataset, arguments
 
 from tools import model_io, index_map
+from tools.loss import dice, one_hot
 
 # Training settings
 model_dir = 'models'
@@ -24,7 +25,9 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-model = Segmenter(2)
+num_classes = 2
+
+model = Segmenter(num_classes)
 if args.cuda:
     model.cuda()
 
@@ -34,18 +37,20 @@ train_loader, train_dataset = dataset.training(args)
 def train(epoch):
     model.train()
 
-    for batch_idx, (data, target) in enumerate(train_loader):
+    for batch_idx, (data, labels) in enumerate(train_loader):
+
+        target = one_hot(labels, num_classes)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
 
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
-        output = model(data)
+        output = F.softmax(model(data))
 
-        loss = F.nll_loss(output, target)
+        #loss = F.nll_loss(output, target)
+        loss = dice(output, target)
 
-
-        if args.show_training:
+        if args.show:
             _, inds = output.data.cpu().max(1)
             inds = inds.byte().squeeze(1)
 

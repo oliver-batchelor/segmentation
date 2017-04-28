@@ -79,4 +79,4 @@ class Segmenter(nn.Module):
         decode3 = self.decode3(encode3, centre)
         decode2 = self.decode2(encode2, decode3)
         decode1 = self.decode1(encode1, decode2)
-        return F.log_softmax(self.final(decode1))
+        return self.final(decode1)
