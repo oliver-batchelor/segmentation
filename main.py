@@ -12,7 +12,7 @@ from model import Segmenter
 import dataset, arguments
 
 from tools import model_io, index_map
-from tools.loss import dice, one_hot
+from tools.loss import dice, one_hot, confusion_matrix
 
 # Training settings
 model_dir = 'models'
@@ -34,7 +34,10 @@ if args.cuda:
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 train_loader, train_dataset = dataset.training(args)
 
+confusions = torch.LongTensor (num_classes, num_classes)
+
 def train(epoch):
+    global confusions
     model.train()
 
     for batch_idx, (data, labels) in enumerate(train_loader):
@@ -47,24 +50,24 @@ def train(epoch):
         optimizer.zero_grad()
         output = F.softmax(model(data))
 
-        #loss = F.nll_loss(output, target)
         loss = dice(output, target)
 
-        if args.show:
-            _, inds = output.data.cpu().max(1)
-            inds = inds.byte().squeeze(1)
+        _, inds = output.data.max(1)
+        inds = inds.long().squeeze(1).cpu()
 
+        confusions = confusions + confusion_matrix(inds, labels, num_classes)
+
+        if args.show:
             overlay = index_map.overlay_batches(data.data.cpu(), inds)
             overlay.show()
 
             input("next:")
 
-
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_dataset),
+                epoch, batch_idx * len(data), len(train_loader) * len(data),
                 100. * batch_idx / len(train_loader), loss.data[0]))
 
 # def test(epoch):

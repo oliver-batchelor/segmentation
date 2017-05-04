@@ -11,7 +11,7 @@ from PIL import Image
 def make_color_map(n):
     colors = torch.ByteTensor(n, 3).fill_(0)
 
-    for i in range(1, n):
+    for i in range(1, n): 
         h = i / n
         s = (2 + (i // 2 % 2)) / 3
         v = (2 + (i % 2)) / 3
@@ -20,7 +20,7 @@ def make_color_map(n):
         colors[i] = (rgb * 255).byte()
 
     d = int(math.sqrt(n))
-    p = torch.range(0, n - 1).long().view(d, -1).t().contiguous().view(n)
+    p = torch.arange(0, n).long().view(d, -1).t().contiguous().view(n)
     return colors.index(p)
 
 default_map = make_color_map(255)
