@@ -14,7 +14,7 @@ def training(args):
     dataset = FlatFolder('/storage/workspace/trees/images',
 
         loader = loaders.load_both(load_rgb, load_target),
-        transform = transforms.random_crop((300, 300), (600, 600), (256, 256), (128, 128)) )
+        transform = transforms.random_crop((300, 300), (600, 600), (256, 256), (256, 256)) )
 
     loader = DataLoader(dataset, num_workers = args.num_workers,
         batch_size = args.batch_size, sampler = RepeatSampler(1024, len(dataset)))

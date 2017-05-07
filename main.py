@@ -8,14 +8,14 @@ from torch.autograd import Variable
 
 import os
 
-from model import Segmenter
+import segnet
+import unet
+
 import dataset, arguments
 
 from tools import model_io, index_map
-from tools.loss import dice, one_hot, confusion_matrix
+from tools.loss import dice, one_hot, confusion_matrix, count_elements
 
-# Training settings
-model_dir = 'models'
 
 args = arguments.get_arguments()
 
@@ -27,40 +27,72 @@ if args.cuda:
 
 num_classes = 2
 
-model = Segmenter(num_classes)
+models = {
+    "segnet" : segnet,
+    "unet"   : unet }
+
+model_dir = args.model
+
+assert args.model in models, "invalid model type"
+model = models[args.model].segmenter(num_classes = num_classes, depth = 6)
+
+
 if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 train_loader, train_dataset = dataset.training(args)
 
-confusions = torch.LongTensor (num_classes, num_classes)
+
+def loss_nll(output, labels):
+    output = F.log_softmax(output)
+    target = Variable(labels.cuda() if args.cuda else labels)
+
+    return F.nll_loss(output, target)
+
+
+def loss_dice(output, labels):
+    target = one_hot(labels, num_classes)
+    target = Variable(target.cuda() if args.cuda else target)
+
+    return dice(output, target)
+
+
+
+loss_functions = {
+    "nll" : loss_nll,
+    "dice"   : loss_dice }
+
+assert args.loss in loss_functions, "invalid loss function type"
+loss_func = loss_functions[args.loss]
+
+
+def softmax(output):
+    _, inds = F.softmax(output).data.max(1)
+    return inds.long().squeeze(1).cpu()
+
 
 def train(epoch):
-    global confusions
+    confusions = torch.LongTensor (num_classes, num_classes).fill_(0)
+
     model.train()
 
     for batch_idx, (data, labels) in enumerate(train_loader):
+        data = Variable(data.cuda() if args.cuda else data)
 
-        target = one_hot(labels, num_classes)
-        if args.cuda:
-            data, target = data.cuda(), target.cuda()
-
-        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
-        output = F.softmax(model(data))
+        output = model(data)
 
-        loss = dice(output, target)
+        loss = loss_func(output, labels)
 
-        _, inds = output.data.max(1)
-        inds = inds.long().squeeze(1).cpu()
-
+        inds = softmax(output)
         confusions = confusions + confusion_matrix(inds, labels, num_classes)
 
+
         if args.show:
+
             overlay = index_map.overlay_batches(data.data.cpu(), inds)
             overlay.show()
-
             input("next:")
 
         loss.backward()
@@ -69,6 +101,10 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader) * len(data),
                 100. * batch_idx / len(train_loader), loss.data[0]))
+
+            print(confusions)
+            confusions = confusions.fill_(0)
+
 
 # def test(epoch):
 #     model.eval()
