@@ -45,6 +45,11 @@ def confusion_matrix(pred, target, num_classes = None):
     num_classes = num_classes or (max(pred.max(), target.max()) + 1)
     return count_elements(pred + target.mul(num_classes), num_classes * num_classes).view(num_classes, num_classes)
 
+
+def confusion_zero(n):
+    return torch.LongTensor (n, n).fill_(0)
+
+
 def count_elements(indices, num_entries  = None):
     indices = indices.long().view(-1)
 

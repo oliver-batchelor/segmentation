@@ -5,13 +5,13 @@ import random
 import math
 
 from tools import tensor
-from PIL import Image
+import tools.cv as cv
 
 
 def make_color_map(n):
     colors = torch.ByteTensor(n, 3).fill_(0)
 
-    for i in range(1, n): 
+    for i in range(1, n):
         h = i / n
         s = (2 + (i // 2 % 2)) / 3
         v = (2 + (i % 2)) / 3
@@ -42,40 +42,29 @@ def colorizer(n = 255):
     color_map = make_color_map(n)
     return lambda image: colorize(image, color_map)
 
-def colorizer_t(n = 255):
-
-    color_map = make_color_map(n)
-    return lambda image: colorize_t(image, color_map)
-
 
 
 
 def overlay_labels(image, labels, color_map = default_map):
-
-    assert(image.dim() == 3 and image.size(0) == 3)
+    assert(image.dim() == 3 and image.size(2) == 3)
 
     if(labels.dim() == 2):
-        labels = labels.view(1, *labels.size())
+        labels = labels.view(*labels.size(), 1)
 
-    assert(labels.dim() == 3 and labels.size(0) == 1)
+    assert(labels.dim() == 3 and labels.size(2) == 1)
+    dim = (image.size(1), image.size(0))
+    labels = cv.resize(labels, dim, interpolation = cv.INTER_NEAREST)
 
-    dim = (image.size(2), image.size(1))
+    labels_color = colorize(labels, color_map).float()
+    mask = 0.5 * labels.clamp_(0, 1).expand_as(labels_color).float()
 
-    labels_color = tensor.to_image_t(colorize_t(labels, color_map)).resize(dim, Image.NEAREST)
-    labels = labels.clamp_(0, 1).mul(255)
-
-    mask = tensor.to_image(labels.squeeze(0).byte(), 'L').resize(dim, Image.NEAREST)
-    image = tensor.to_image_t(image.mul(255).byte())
-
-    return Image.composite(labels_color, image, mask)
-
+    return (image.float() * (1 - mask) + labels_color * mask).type_as(image)
 
 
 def overlay_batches(images, target, cols = 6, color_map = default_map):
-
     images = tensor.tile_batch(images, cols)
-    target = target.view(target.size(0), 1, target.size(1), target.size(2))
 
+    target = target.view(*target.size(), 1)
     target = tensor.tile_batch(target, cols)
 
     return overlay_labels(images, target, color_map)

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from PIL import Image
+import tools.cv as cv
 import argparse
 
 # from torch.autograd import Variable
@@ -11,9 +11,10 @@ import argparse
 import os
 import dataset
 
-from model import Segmenter
-from tools import model_io, loaders, transforms, index_map
+from tools import loaders, transforms, index_map
 import tools
+import models
+
 
 from torch.autograd import Variable
 
@@ -26,49 +27,48 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='enables CUDA training')
 args = parser.parse_args()
 
-model = Segmenter(2)
+def softmax(output):
+    _, inds = F.softmax(output).data.max(1)
+    return inds.long().squeeze(1).cpu()
 
-epoch, state = model_io.load('models')
-model.load_state_dict(state)
+def write(image, extension, path):
+    result, buf = cv.imencode(extension, image)
+    with open(path, 'wb') as file:
+        file.write(buf)
+
+
+model, model_params, epoch = models.load('models')
+print("loaded model: ", model_params)
 
 args.cuda = not args.no_cuda and torch.cuda.is_available()
-model = Segmenter(2)
 if args.cuda:
     model.cuda()
 
+image = loaders.load_rgb(args.image)
 
-try:
-    image = loaders.load_rgb(args.image)
-except:
-    print("could not load image ", args.image)
-    exit(1)
-
-input_size = (256, 256)
-image = image.crop((0, 0, 600, 600)).resize(input_size, Image.BICUBIC)
+data = image.view(1, *image.size())
 
 
-if image:
-    image_tensor = transforms.to_tensor(image)
+input = data.permute(0, 3, 1, 2).float()
+if args.cuda:
+    input = input.cuda()
 
-    data = image_tensor.view(1, *image_tensor.size())
-    if args.cuda:
-        data = data.cuda()
+model.eval()
+output = model(Variable(input))
 
-    model.eval()
-    output = model(Variable(data)).data
-    _, inds = output.max(1)
+inds = softmax(output)
 
-    inds = inds.byte()
 
-    if(args.save):
-        result = tools.tensor.to_image(inds)
-        result = image.resize((data.size(3), data.size(2)), Image.NEAREST)
 
-        result.save(args.save)
-    else:
-        color_map = index_map.make_color_map(255)
-        overlay = index_map.overlay_labels(image_tensor, inds, color_map)
-        overlay.show()
+if(args.save):
+    inds = inds.squeeze(0)
+    labels = inds.view(*inds.size(), 1)
+
+    labels = cv.resize(labels, (image.size(1), image.size(0)), interpolation = cv.INTER_NEAREST)
+    write(labels, ".png", args.save)
+else:
+     overlay = index_map.overlay_batches(data, inds)
+     cv.display(overlay)
 
 
 

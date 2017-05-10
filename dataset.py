@@ -4,20 +4,23 @@ from torch.utils.data import DataLoader
 from tools.datasets import FlatFolder
 
 from tools.samplers import RepeatSampler
-
+import os.path
 
 def training(args):
 
     load_rgb = loaders.load_cached(loaders.load_rgb)
     load_target = loaders.load_cached(loaders.load_target_channel(0))
 
-    dataset = FlatFolder('/storage/workspace/trees/images',
+    path = '/storage/workspace/trees/images'
+    with open(os.path.join(path, 'classes.txt')) as g:
+        classes = g.readlines()
 
+    dataset = FlatFolder(path,
         loader = loaders.load_both(load_rgb, load_target),
-        transform = transforms.random_crop((300, 300), (600, 600), (256, 256), (256, 256)) )
+        transform = transforms.random_crop((256, 256), (256, 256), max_scale = 2) )
 
     loader = DataLoader(dataset, num_workers = args.num_workers,
-        batch_size = args.batch_size, sampler = RepeatSampler(1024, len(dataset)))
+        batch_size = args.batch_size, sampler = RepeatSampler(1024, dataset))
 
 
-    return loader, dataset
+    return loader, dataset, classes

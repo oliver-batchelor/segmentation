@@ -13,6 +13,13 @@ def get_arguments():
 
     parser.add_argument('--loss', default='dice',
                     help='loss function type to use. nll|dice')
+    parser.add_argument('--depth', type=int, default=4,
+                    help='number of layers of depth in the model')
+    parser.add_argument('--nfeatures', type=int, default=8,
+                    help='number of features present in the first layer of the network')
+
+    parser.add_argument('--model_path', default='models',
+                    help='path to store models')
 
     parser.add_argument('--test_batch_size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
@@ -28,7 +35,7 @@ def get_arguments():
                         help='random seed (default: 1)')
     parser.add_argument('--log_interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-    parser.add_argument('--load_model', action = 'store_true', default=False,
+    parser.add_argument('--load', action = 'store_true', default=False,
                         help='load progress from previous training')
 
     parser.add_argument('--show', action = 'store_true', default=False,

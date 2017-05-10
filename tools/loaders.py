@@ -1,7 +1,5 @@
-
-
-from PIL import Image
-
+import torch
+import tools.cv as cv
 
 def load_cached(f):
     assert(f)
@@ -13,10 +11,12 @@ def load_cached(f):
     return load
 
 def load_target_channel(channel = 0):
-    return lambda path: Image.open(path).split()[channel]
+    def load(path):
+        return cv.imread(path).select(2, 0)
+    return load
 
 def load_rgb(path):
-    return Image.open(path).convert('RGB')
+    return cv.imread(path)
 
 def load_both(load_image, load_target):
     assert(load_image and load_target)

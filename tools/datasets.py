@@ -32,20 +32,23 @@ class FlatFolder(data.Dataset):
 
     def __init__(self, root, loader, use_image = image_with_mask(imageExtensions), transform=None):
 
-        imgs = find_files(root, use_image)
-        if len(imgs) == 0:
-            raise(RuntimeError("Found 0 matching images in: " + root + "\n"))
-
         self.root = root
-        self.imgs = imgs
         self.transform = transform
         self.loader = loader
+        self.use_image = use_image
+
+        self.rescan()
+
+
+    def rescan(self):
+        self.imgs = find_files(self.root, self.use_image)
+        if len(self.imgs) == 0:
+            raise(RuntimeError("Found 0 matching images in: " + self.root + "\n"))
+
+
 
     def __getitem__(self, index):
         img, target = self.loader(*self.imgs[index])
-
-
-
         if self.transform is not None:
             img, target = self.transform(img, target)
 

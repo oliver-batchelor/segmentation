@@ -1,11 +1,10 @@
 
-import conversions
-from PIL import Image
-import flat
+from tools import cv, index_map
+
 from torchvision import transforms
 import argparse
 
-
+import tools.transforms as transforms
 
 parser = argparse.ArgumentParser(description='Image viewer for labelled images')
 parser.add_argument('filename', help='Image file to view')
@@ -13,9 +12,8 @@ parser.add_argument('filename', help='Image file to view')
 
 args = parser.parse_args()
 
-image = flat.load_target(args.filename)
+image = cv.imread(args.filename)
+print(image.size())
 
-labels = index_map.to_tensor(image)
 colorizer = index_map.colorizer(255)
-
-index_map.to_image(colorizer(labels)).show()
+cv.display(colorizer(image))

@@ -21,13 +21,13 @@ def segmenter(encode, decode):
 
     class Segmenter(nn.Module):
 
-        def __init__(self, num_classes = 2, input_channels = 3, base_features = 8, depth = 4):
+        def __init__(self, num_classes = 2, input_channels = 3, features = 8, depth = 4):
             super().__init__()
 
-            self.encode = encode(input_channels, base_features)
-            self.decode = decode(base_features, num_classes)
+            self.encode = encode(input_channels, features)
+            self.decode = decode(features, num_classes)
 
-            self.pyramid = Pyramid(base_features, depth)
+            self.pyramid = Pyramid(features, depth)
 
         def forward(self, input):
             output, inds = self.encode(input)
