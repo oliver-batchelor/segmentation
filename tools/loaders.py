@@ -10,12 +10,11 @@ def load_cached(f):
 
     manager = Manager()
     loaded = manager.dict()
-    
+
     def load(arg):
         modified = os.path.getmtime(arg)
 
         if((not (arg in loaded)) or modified > loaded[arg]['modified']):
-            print(arg, modified)
             loaded[arg] = { 'data' : f(arg), 'modified' : modified }
 
         return loaded[arg]['data']
