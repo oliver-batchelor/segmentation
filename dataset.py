@@ -17,7 +17,7 @@ def training(args):
 
     dataset = FlatFolder(path,
         loader = loaders.load_both(load_rgb, load_target),
-        transform = transforms.random_crop((256, 256), (256, 256), max_scale = 2) )
+        transform = transforms.random_crop((320, 240), (320, 240), max_scale = 2) )
 
     loader = DataLoader(dataset, num_workers = args.num_workers,
         batch_size = args.batch_size, sampler = RepeatSampler(1024, dataset))

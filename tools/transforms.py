@@ -6,15 +6,21 @@ import math
 from tools import tensor
 import tools.cv as cv
 
-def random_region(image, size):
+def random_check(lower, upper):
+    if (lower >= upper):
+        return (lower + upper) / 2
+    else:
+        return random.randint(lower, upper)
+
+def random_region(image, size, border = 0):
 
     w, h = image.size(1), image.size(0)
-    th, tw = size
+    tw, th = size
 
-    assert(w >= tw and h >= th)
+    # assert(w >= tw + border * 2 and h >= th + border * 2)
 
-    x1 = random.randint(0, w - tw)
-    y1 = random.randint(0, h - th)
+    x1 = random_check(border, w - tw - border)
+    y1 = random_check(border, h - th - border)
 
     return ((x1 + tw * 0.5, y1 + th * 0.5), (tw * 0.5, th * 0.5))
 
@@ -42,33 +48,38 @@ def translation(tx, ty):
       [0, 0, 1]])
 
 
+def adjust_colors(image, gamma_dev = 0.2):
+    gamma = random.uniform(1-gamma_dev, 1+gamma_dev)
 
 
-# def adjust_gamma(image, gamma=1.0):
-#
-# 	invGamma = 1.0 / gamma
-# 	table = np.array([((i / 255.0) ** invGamma) * 255
-# 		for i in np.arange(0, 256)]).astype("uint8")
-#
-# 	return cv2.LUT(image, table)
 
-def random_crop(min_crop, dest_size, max_scale = 1):
+    return cv.adjust_gamma(image, gamma)
+
+
+def random_crop(min_crop, dest_size, max_scale = 1, border = 20, squash_dev = 0.1, rotation_dev = 5, gamma_dev = 0.1):
     def crop(image, target):
 
-        scale = random.uniform(1, min(max_scale, image.size(1) / dest_size[0], image.size(0) / dest_size[1]))
+        base_scale = random.uniform(1, min(max_scale, image.size(1) / dest_size[0], image.size(0) / dest_size[1]))
+        sx, sy = base_scale, base_scale * random.uniform(1-squash_dev, 1+squash_dev)
 
-        crop_size = (math.floor(scale * min_crop[0]), math.floor(scale * min_crop[1]))
-        centre, extents = random_region(image, crop_size)
+        crop_size = (math.floor(sx * min_crop[0]), math.floor(sy * min_crop[1]))
+        centre, extents = random_region(image, crop_size, border)
 
         toCentre = translation(-centre[0], -centre[1])
         fromCentre = translation(dest_size[0] * 0.5, dest_size[1] * 0.5)
 
-        r = rotation(random.uniform(-10, 10) * (math.pi / 180))
-        s = scaling(1 / scale, 1 / scale)
+        flip = 1 if random.uniform(0.0, 1.0) > 0.5 else -1
+
+        r = rotation(random.uniform(-rotation_dev, rotation_dev) * (math.pi / 180))
+        s = scaling(flip / sx, 1 / sy)
         t = fromCentre.mm(s).mm(r).mm(toCentre)
 
         image_out = cv.warpAffine(image, t, dest_size, flags = cv.INTER_CUBIC, borderMode = cv.BORDER_CONSTANT)
         labels_out = cv.warpAffine(target, t, dest_size, flags = cv.INTER_NEAREST, borderMode = cv.BORDER_CONSTANT)
+
+        image_out.select(2, 0).copy_(adjust_colors(image_out.select(2, 0), gamma_dev))
+        image_out.select(2, 1).copy_(adjust_colors(image_out.select(2, 1), gamma_dev))
+        image_out.select(2, 2).copy_(adjust_colors(image_out.select(2, 2), gamma_dev))
 
         return image_out, labels_out.long()
     return crop

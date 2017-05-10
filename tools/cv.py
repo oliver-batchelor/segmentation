@@ -2,6 +2,8 @@
 import cv2
 import torch
 
+import numpy as np
+
 def imread(path):
     image = torch.from_numpy (cv2.imread(path, cv2.IMREAD_UNCHANGED))
     if(image.dim() == 2):
@@ -27,6 +29,21 @@ def imshow(name, t):
     cv2.imshow(name, t.numpy())
 
 
+def adjust_gamma(image, gamma=1.0):
+	invGamma = 1.0 / gamma
+	table = np.array([((i / 255.0) ** invGamma) * 255
+		for i in np.arange(0, 256)]).astype("uint8")
+
+	return torch.from_numpy(cv2.LUT(image.numpy(), table))
+
+def cvtColor(image, conversion):
+    return torch.from_numpy(cv2.cvtColor(image.numpy(), conversion))
+
+def bgr_to_hsv(image):
+    return cvtColor(image, cv2.COLOR_BGR2HSV)
+
+def hsv_to_bgr(image):
+    return cvtColor(image, cv2.COLOR_HSV2BGR)
 
 def warpAffine(image, t, target_size, **kwargs):
     t = t.narrow(0, 0, 2)

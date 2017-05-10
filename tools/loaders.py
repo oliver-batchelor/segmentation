@@ -1,13 +1,25 @@
 import torch
 import tools.cv as cv
 
+import os
+
+from torch.multiprocessing import Manager
+
 def load_cached(f):
     assert(f)
-    loaded = {}
+
+    manager = Manager()
+    loaded = manager.dict()
+    
     def load(arg):
-        if(not (arg in loaded)):
-            loaded[arg] = f(arg)
-        return loaded[arg]
+        modified = os.path.getmtime(arg)
+
+        if((not (arg in loaded)) or modified > loaded[arg]['modified']):
+            print(arg, modified)
+            loaded[arg] = { 'data' : f(arg), 'modified' : modified }
+
+        return loaded[arg]['data']
+
     return load
 
 def load_target_channel(channel = 0):
