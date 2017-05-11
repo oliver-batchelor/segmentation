@@ -65,11 +65,15 @@ def loss_dice(output, labels):
 
     return dice(output, target)
 
+def loss_both(output, labels):
+    return loss_nll(output, labels) + loss_dice(output, labels)
 
 
 loss_functions = {
     "nll" : loss_nll,
-    "dice"   : loss_dice }
+    "dice"   : loss_dice,
+    "both" : loss_both
+    }
 
 assert args.loss in loss_functions, "invalid loss function type"
 loss_func = loss_functions[args.loss]
@@ -81,7 +85,9 @@ def softmax(output):
 
 
 def train(epoch):
-    confusions = confusion_zero(len(classes))
+    confusion_total = confusion_zero(len(classes))
+    loss_total = 0
+    n_batches = 0
 
     model.train()
 
@@ -96,7 +102,9 @@ def train(epoch):
         loss = loss_func(output, labels)
 
         inds = softmax(output)
-        confusions = confusions + confusion_matrix(inds, labels, len(classes))
+        confusion_total = confusion_total + confusion_matrix(inds, labels, len(classes))
+        loss_total = loss_total + loss.data[0]
+        n_batches = n_batches + 1
 
         if args.show:
             overlay = index_map.overlay_batches(data, inds)
@@ -105,13 +113,17 @@ def train(epoch):
 
         loss.backward()
         optimizer.step()
-        if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(loader) * len(data),
-                100. * batch_idx / len(loader), loss.data[0]))
 
-            print(confusions)
-            confusions = confusions.fill_(0)
+        progress = batch_idx + 1
+        if progress % args.log_interval == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, progress * len(data), len(loader) * len(data),
+                100. * progress / len(loader), loss_total / n_batches))
+
+            print(confusion_total)
+            loss_total = 0
+            n_batches = 0
+            confusion_total = confusion_total.fill_(0)
 
 
 for epoch in range(start_epoch + 1, start_epoch + args.epochs):

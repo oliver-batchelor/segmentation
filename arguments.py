@@ -8,6 +8,10 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=32, metavar='N',
                         help='input batch size for training (default: 64)')
 
+    parser.add_argument('--epoch_size', type=int, default=1024, metavar='E',
+                        help='epoch size for training (default: 1024)')
+
+
     parser.add_argument('--model', default='segnet',
                         help='model type to use. segnet|unet')
 
@@ -21,9 +25,9 @@ def get_arguments():
     parser.add_argument('--model_path', default='models',
                     help='path to store models')
 
-    parser.add_argument('--test_batch_size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=100, metavar='N',
+    # parser.add_argument('--test_batch_size', type=int, default=1000, metavar='N',
+    #                     help='input batch size for testing (default: 1000)')
+    parser.add_argument('--epochs', type=int, default=1000, metavar='N',
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                         help='learning rate (default: 0.1)')
@@ -33,8 +37,10 @@ def get_arguments():
                         help='enables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--log_interval', type=int, default=10, metavar='N',
+
+    parser.add_argument('--log_interval', type=int, default=8, metavar='N',
                         help='how many batches to wait before logging training status')
+
     parser.add_argument('--load', action = 'store_true', default=False,
                         help='load progress from previous training')
 

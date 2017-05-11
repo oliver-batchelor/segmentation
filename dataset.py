@@ -20,7 +20,7 @@ def training(args):
         transform = transforms.random_crop((320, 240), (320, 240), max_scale = 2) )
 
     loader = DataLoader(dataset, num_workers = args.num_workers,
-        batch_size = args.batch_size, sampler = RepeatSampler(1024, dataset))
+        batch_size = args.batch_size, sampler = RepeatSampler(args.epoch_size, dataset))
 
 
     return loader, dataset, classes
