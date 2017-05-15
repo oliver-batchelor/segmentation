@@ -1,7 +1,12 @@
 import segnet
 import unet
 
+import tools.loss as loss
 import tools.model_io as model_io
+
+import torch.nn.functional as F
+from torch.autograd import Variable
+
 
 models = {
     "segnet" : segnet,
@@ -38,3 +43,32 @@ def load(path):
     model.load_state_dict(state['state'])
 
     return model, params, state['epoch']
+
+
+def make_loss(args, num_classes):
+
+    def loss_nll(output, labels):
+        output = F.log_softmax(output)
+        target = Variable(labels.cuda() if args.cuda else labels)
+
+        return F.nll_loss(output, target)
+
+
+    def loss_dice(output, labels):
+        target = loss.one_hot(labels, num_classes)
+        target = Variable(target.cuda() if args.cuda else target)
+
+        return loss.dice(output, target)
+
+    def loss_both(output, labels):
+        return loss_nll(output, labels) + loss_dice(output, labels)
+
+
+    loss_functions = {
+        "nll" : loss_nll,
+        "dice"   : loss_dice,
+        "both" : loss_both
+        }
+
+    assert args.loss in loss_functions, "invalid loss function type"
+    return loss_functions[args.loss]

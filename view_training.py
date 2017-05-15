@@ -8,6 +8,8 @@ import tools.cv as cv
 parser = argparse.ArgumentParser(description='Tree segmentation - view training set')
 parser.add_argument('--batch-size', type=int, default=8, metavar='N',
                     help='input batch size for training (default: 64)')
+parser.add_argument('--epoch_size', type=int, default=1024, metavar='E',
+                    help='epoch size for training (default: 1024)')
 
 args = parser.parse_args()
 

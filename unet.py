@@ -8,24 +8,24 @@ class Conv2(nn.Module):
     def __init__(self, in_size, out_size, kernel = 3):
         super().__init__()
 
-        self.conv1 = Conv(in_size, out_size, kernel)
-        self.conv2 = Conv(out_size, out_size, kernel)
+        self.conv1 = Conv(in_size, out_size, kernel = kernel)
+        self.conv2 = Conv(out_size, out_size, kernel = kernel)
 
     def forward(self, inputs):
         return self.conv2(self.conv1(inputs))
 
 class Conv(nn.Module):
 
-    def __init__(self, in_size, out_size, kernel = 3):
+    def __init__(self, in_size, out_size, kernel = 3, dilation = 1):
         super().__init__()
 
         self.norm = nn.BatchNorm2d(in_size)
-        self.conv1 = nn.Conv2d(in_size, out_size, 3, 1, 1)
+        self.conv1 = nn.Conv2d(in_size, out_size, kernel, padding = (kernel//2) * dilation, dilation = dilation)
 
     def forward(self, inputs):
         return F.relu(self.conv1(self.norm(inputs)))
 
-Convs = Conv2
+Convs = Conv
 
 class Encode(nn.Module):
 
