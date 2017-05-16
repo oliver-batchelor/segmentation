@@ -19,10 +19,10 @@ def without(d, key):
     return new_d
 
 def create(params):
-    model = params['model']
+    model_type = params['model']
 
-    assert model in models, "invalid model type"
-    return models[model].segmenter(** without(params, 'model'))
+    assert model_type in models, "invalid model type"
+    return models[model_type].segmenter(**params['model_params'])
 
 
 def save(path, model, model_params, epoch):

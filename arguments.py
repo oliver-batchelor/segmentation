@@ -6,14 +6,14 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=32, metavar='N',
                         help='input batch size for training (default: 64)')
 
-    parser.add_argument('--epoch_size', type=int, default=1024, metavar='E',
+    parser.add_argument('--epoch_size', type=int, default=256, metavar='E',
                         help='epoch size for training (default: 1024)')
 
 
     parser.add_argument('--model', default='segnet',
                         help='model type to use. segnet|unet')
 
-    parser.add_argument('--experiment', default='',
+    parser.add_argument('--experiment', default='experiment',
                         help='name for logged experiment on tensorboard (default None)')
 
     parser.add_argument('--loss', default='dice',
@@ -25,6 +25,10 @@ def get_arguments():
 
     parser.add_argument('--model_path', default='/storage/workspace/trees/models',
                         help='path to store models')
+
+    parser.add_argument('--log_path', default='/storage/workspace/trees/logs',
+                        help='path to store logs')
+
 
     # parser.add_argument('--test_batch_size', type=int, default=1000, metavar='N',
     #                     help='input batch size for testing (default: 1000)')
@@ -39,8 +43,6 @@ def get_arguments():
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
 
-    parser.add_argument('--log_interval', type=int, default=8, metavar='N',
-                        help='how many batches to wait before logging training status')
 
     parser.add_argument('--load', action='store_true', default=False,
                         help='load progress from previous training')
