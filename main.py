@@ -55,7 +55,6 @@ if model is None:
     }
 
 
-
     print("creation state: ", creation_params)
     model = models.create(creation_params)
 
@@ -69,7 +68,7 @@ if not args.dry_run:
     exists = os.path.exists(output_path) and len(os.listdir(output_path)) > 0
 
     if exists  and (not args.load):
-        backup_name = logger.enumerate_name(args.name, os.listdir(output_paths))
+        backup_name = logger.enumerate_name(args.name, os.listdir(args.log))
         backup_path = os.path.join(args.log, backup_name)
 
         print("moving old experiment to: " + backup_path)
