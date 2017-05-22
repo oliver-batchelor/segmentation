@@ -1,16 +1,18 @@
-import segnet
-import unet
+from models import unet, unet_full, segnet
 
-import tools.loss as loss
-import tools.model_io as model_io
+import tools.model.loss as loss
+from tools import Struct
 
+
+import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
 
 models = {
     "segnet" : segnet,
-    "unet"   : unet
+    "unet"   : unet,
+    "unet_full"   : unet_full
     }
 
 def without(d, key):
@@ -26,23 +28,19 @@ def create(params):
 
 
 def save(path, model, model_params, epoch):
-    state = {
-        'epoch': epoch,
-        'params': model_params,
-        'state': model.state_dict()
-    }
+    state = Struct(epoch=epoch, params=model_params, state=model.state_dict())
 
-    model_io.save(path, epoch, state)
+    print("saving state to: " + path)
+    torch.save(state, path)
 
 def load(path):
 
-    state = model_io.load(path)
-    params = state['params']
+    state = torch.load(path)
+    params = state.params
     model = create(params)
 
-    model.load_state_dict(state['state'])
-
-    return model, params, state['epoch']
+    model.load_state_dict(state.state)
+    return model, params, state.epoch
 
 
 def make_loss(args, num_classes):

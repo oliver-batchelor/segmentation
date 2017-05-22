@@ -2,7 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import tools.pyramid as pyramid
+import tools.model.pyramid as pyramid
+from tools.model import match_size_2d
+
 
 class Convs(nn.Module):
 
@@ -26,15 +28,6 @@ class Encode(nn.Module):
         return F.max_pool2d(self.conv(inputs), 2, 2, return_indices = True)
 
 
-def sub(xs, ys):
-     return tuple (x - y for x, y in zip(xs, ys))
-
-
-def match_size(t, sized):
-    assert(t.dim() == sized.dim())
-    return F.pad(t, sub(sized.size(), t.size()))
-
-
 
 class Decode(nn.Module):
 
@@ -45,8 +38,10 @@ class Decode(nn.Module):
 
     def forward(self, inputs, indices):
 
-        upscaled = F.max_unpool2d(inputs, indices, 2, 2)
+        padded = match_size_2d(inputs, indices)
+
+
+        upscaled = F.max_unpool2d(padded, indices, 2, 2)
         return self.conv(upscaled)
 
-def segmenter(**kwargs):
-    return pyramid.segmenter(Encode, Decode, **kwargs)
+segmenter = pyramid.segmenter(Encode, Decode)

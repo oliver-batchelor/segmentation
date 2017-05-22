@@ -1,21 +1,17 @@
 
 import argparse
+import tools.arguments as common
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='Tree segmentation')
-    parser.add_argument('--batch_size', type=int, default=32, metavar='N',
-                        help='input batch size for training (default: 64)')
-
-    parser.add_argument('--epoch_size', type=int, default=256, metavar='E',
-                        help='epoch size for training (default: 1024)')
 
 
+
+    # Model parameters
     parser.add_argument('--model', default='segnet',
-                        help='model type to use. segnet|unet')
-
+                        help='model type to use. segnet|unet|unet_full')
     parser.add_argument('--experiment', default='experiment',
                         help='name for logged experiment on tensorboard (default None)')
-
     parser.add_argument('--loss', default='dice',
                         help='loss function type to use. nll|dice')
     parser.add_argument('--depth', type=int, default=4,
@@ -23,34 +19,11 @@ def get_arguments():
     parser.add_argument('--nfeatures', type=int, default=8,
                         help='number of features present in the first layer of the network')
 
-    parser.add_argument('--model_path', default='/storage/workspace/trees/models',
-                        help='path to store models')
-
-    parser.add_argument('--log_path', default='/storage/workspace/trees/logs',
-                        help='path to store logs')
+    parser.add_argument('--input', default='/storage/workspace/trees/images',
+                        help='input image path')
 
 
-    # parser.add_argument('--test_batch_size', type=int, default=1000, metavar='N',
-    #                     help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=1000, metavar='N',
-                        help='number of epochs to train (default: 100)')
-    parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
-                        help='learning rate (default: 0.1)')
-    parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
-                        help='SGD momentum (default: 0.5)')
-    parser.add_argument('--no_cuda', action='store_true', default=False,
-                        help='enables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
 
-
-    parser.add_argument('--load', action='store_true', default=False,
-                        help='load progress from previous training')
-
-    parser.add_argument('--show', action='store_true', default=False,
-                        help='view training output')
-
-    parser.add_argument('--num-workers', type=int, default=1, metavar='W',
-                        help='number of workers used to process dataset')
+    common.add(parser)
 
     return parser.parse_args()
