@@ -70,7 +70,7 @@ if not args.dry_run:
 
     if exists  and (not args.load):
         backup_name = logger.enumerate_name(args.name, os.listdir(output_paths))
-        backup_path = os.path.join(output_paths, backup_name)
+        backup_path = os.path.join(args.log, backup_name)
 
         print("moving old experiment to: " + backup_path)
         os.rename(output_path, backup_path)
