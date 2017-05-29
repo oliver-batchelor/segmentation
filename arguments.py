@@ -19,7 +19,9 @@ def get_arguments():
     parser.add_argument('--nfeatures', type=int, default=8,
                         help='number of features present in the first layer of the network')
 
-    parser.add_argument('--input', default='/storage/workspace/trees/images',
+    parser.add_argument('--dropout', type=float, default=0, help='dropout to use at each convolution')
+
+    parser.add_argument('--input', default='/storage/workspace/trees',
                         help='input image path')
 
 

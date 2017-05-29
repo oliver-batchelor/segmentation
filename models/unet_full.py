@@ -6,17 +6,23 @@ import tools.model.pyramid as pyramid
 from tools.model import match_size_2d
 
 
+
+
+
 class Conv(nn.Module):
 
     def __init__(self, in_size, out_size, kernel = 3, dilation = 1):
         super().__init__()
+
+        self.drop = nn.Dropout2d(p=0.1)
+
 
         self.norm = nn.BatchNorm2d(in_size)
         self.conv1 = nn.Conv2d(in_size, out_size, kernel, dilation = dilation)
 
 
     def forward(self, inputs):
-        return F.relu(self.conv1(self.norm(inputs)))
+        return F.relu(self.drop(self.conv1(self.norm(inputs))))
 
 class ConvT(nn.Module):
 

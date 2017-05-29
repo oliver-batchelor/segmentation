@@ -25,9 +25,15 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
 
+def to_cuda(t):
+    return t.cuda() if args.cuda else t
 
 
-loader, dataset, classes = dataset.training(args)
+test_loader, test_data = dataset.testing(args)
+train_loader, train_data = dataset.training(args)
+
+
+classes = dataset.classes(args)
 start_epoch = 0
 
 model = None
@@ -80,8 +86,7 @@ if not args.dry_run:
     log = logger.Logger(output_path)
 
 
-if args.cuda:
-    model.cuda()
+model = to_cuda(model)
 
 #optimizer = optim.Adam(model.parameters(), lr=args.lr)
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
@@ -94,75 +99,97 @@ def softmax(output):
     return inds.long().squeeze(1).cpu()
 
 
-def train(epoch):
+
+
+def make_eval():
     confusion_total = loss.confusion_zero(len(classes))
     loss_total = 0
-    n_batches = 0
 
-    model.train()
+    def f(data, labels):
+        nonlocal confusion_total, loss_total
+        input_data = data.permute(0, 3, 1, 2)
 
-    for _, (data, labels) in enumerate(tqdm(loader)):
-
-        input_data = data.permute(0, 3, 1, 2).float()
-        input_data = Variable(input_data.cuda() if args.cuda else input_data)
-
-        optimizer.zero_grad()
-        output = model(input_data)
-
+        output = model(Variable(to_cuda(input_data)))
         error = loss_func(output, labels)
 
         inds = softmax(output)
-        confusion_total = confusion_total + loss.confusion_matrix(inds, labels, len(classes))
+        confusion_total.add_(loss.confusion_matrix(inds, labels, len(classes)))
         loss_total = loss_total + error.data[0]
-        n_batches = n_batches + 1
-
-        overlay = index_map.overlay_batches(data, inds)
-        #log.image("train/segmentation", overlay, epoch)
 
         if args.show:
             overlay = index_map.overlay_batches(data, inds)
             if cv.display(overlay) == 27:
                 exit(1)
 
-        error.backward()
-        optimizer.step()
+        return error, (confusion_total, loss_total)
 
+    return f, (confusion_total, loss_total)
 
-    avg_loss = loss_total / len(loader)
-    log.scalar("train/loss", avg_loss, step=epoch)
-    log.scalar("train/lr", args.lr, step=epoch)
-    log.scalar("train/batch_size", args.batch_size, step=epoch)
+def table(*xs):
+    return torch.cat(map (lambda x: x.narrow(0, 1, x.size(0) - 1).view(-1, 1), list(xs)), 1)
 
-    print('Train Epoch: {}\tLoss: {:.6f}'.format(epoch, avg_loss))
-    print(confusion_total)
+def summarize(name, totals, epoch):
+    confusion, loss = totals
 
-    num_labelled = confusion_total.float().sum(1).squeeze(1)
-    num_classified = confusion_total.float().sum(0).squeeze(0)
-    correct = confusion_total.float().diag()
+    avg_loss = loss / len(train_loader)
+    log.scalar(name + "/loss", avg_loss, step=epoch)
+    log.scalar(name + "/lr", args.lr, step=epoch)
+    log.scalar(name + "/batch_size", args.batch_size, step=epoch)
+
+    print(name + ' epoch: {}\tLoss: {:.6f}'.format(epoch, avg_loss))
+    print(confusion)
+
+    num_labelled = confusion.float().sum(1).squeeze(1)
+    num_classified = confusion.float().sum(0).squeeze(0)
+    correct = confusion.float().diag()
 
     precision = correct / num_labelled
     recall = correct / num_classified
 
+    print ("precision, recall:")
+    print(table(precision, recall, correct), 1)
+
+    n = precisions.size(0)
+    print("avg precision:", precision.narrow(0, 1, n).mean())
+    print("avg recall:", recall.narrow(0, 1, n).mean())
+
+
 
     for i in range(1, len(classes)):
-        log.scalar("train/classes/" + classes[i] + "/recall", recall[i], step=epoch)
-        log.scalar("train/classes/" + classes[i] + "/precision", precision[i], step=epoch)
+        prefix = name + "/classes/" + classes[i]
+        log.scalar(prefix + "/recall", recall[i], step=epoch)
+        log.scalar(prefix + "/precision", precision[i], step=epoch)
 
-    total_correct = correct.sum() / confusion_total.sum()
-    log.scalar("train/correct", total_correct, step=epoch)
+    total_correct = correct.sum() / confusion.sum()
+    log.scalar(name + "/correct", total_correct, step=epoch)
+
+def train(epoch):
+    eval, totals = make_eval()
+    model.train()
+    for _, (data, labels) in enumerate(tqdm(train_loader)):
+        optimizer.zero_grad()
+        error, totals = eval(data, labels)
+        error.backward()
+        optimizer.step()
+    summarize("train", totals, epoch)
 
 
-
-
+def test(epoch):
+    eval, totals = make_eval()
+    model.eval()
+    for _, (data, labels) in enumerate(tqdm(test_loader)):
+        error, totals = eval(data, labels)
+    summarize("test", totals, epoch)
 
 
 for e in range(start_epoch + 1, start_epoch + args.epochs):
 
     train(e)
+    test(e)
 
     if (e + 1) % args.save_interval == 0:
         if not args.dry_run:
             models.save(model_path, model, creation_params, e)
 
         print("scanning dataset...")
-        dataset.rescan()
+        train_data.rescan()

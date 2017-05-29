@@ -53,6 +53,7 @@ def make_loss(args, num_classes):
 
 
     def loss_dice(output, labels):
+        
         target = loss.one_hot(labels, num_classes)
         target = Variable(target.cuda() if args.cuda else target)
 
