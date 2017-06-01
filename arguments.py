@@ -10,6 +10,10 @@ def get_arguments():
     # Model parameters
     parser.add_argument('--model', default='segnet',
                         help='model type to use. segnet|unet|unet_full')
+
+    parser.add_argument('--dataset', default='seg',
+                        help='dataset to load. segnet|voc')
+
     parser.add_argument('--experiment', default='experiment',
                         help='name for logged experiment on tensorboard (default None)')
     parser.add_argument('--loss', default='dice',
@@ -23,6 +27,8 @@ def get_arguments():
 
     parser.add_argument('--input', default='/storage/workspace/trees',
                         help='input image path')
+    parser.add_argument('--no_crop', action='store_true', default=False,
+                        help='train always on full size images rather than cropping')
 
 
 

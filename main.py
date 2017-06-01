@@ -6,9 +6,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-import dataset, arguments
+import datasets, arguments
 
-from tools.image import index_map
+from tools.image import index_map, transforms
 import tools.image.cv as cv
 import tools.model.loss as loss
 
@@ -28,6 +28,7 @@ if args.cuda:
 def to_cuda(t):
     return t.cuda() if args.cuda else t
 
+dataset = datasets.create(args)
 
 test_loader, test_data = dataset.testing(args)
 train_loader, train_data = dataset.training(args)
@@ -100,16 +101,15 @@ def softmax(output):
 
 
 
-
 def make_eval():
     confusion_total = loss.confusion_zero(len(classes))
     loss_total = 0
 
     def f(data, labels):
         nonlocal confusion_total, loss_total
-        input_data = data.permute(0, 3, 1, 2)
+        input_data = transforms.normalize(to_cuda(data)).permute(0, 3, 1, 2)
 
-        output = model(Variable(to_cuda(input_data)))
+        output = model(Variable(input_data))
         error = loss_func(output, labels)
 
         inds = softmax(output)
@@ -125,8 +125,7 @@ def make_eval():
 
     return f, (confusion_total, loss_total)
 
-def table(*xs):
-    return torch.cat(map (lambda x: x.narrow(0, 1, x.size(0) - 1).view(-1, 1), list(xs)), 1)
+
 
 def summarize(name, totals, epoch):
     confusion, loss = totals
@@ -146,12 +145,12 @@ def summarize(name, totals, epoch):
     precision = correct / num_labelled
     recall = correct / num_classified
 
-    print ("precision, recall:")
-    print(table(precision, recall, correct), 1)
+    print ("name,   precision,  recall:")
+    for i in range(0, precision.size()):
+        print(classes[i], precision[i], recall[i])
 
     n = precisions.size(0)
-    print("avg precision:", precision.narrow(0, 1, n).mean())
-    print("avg recall:", recall.narrow(0, 1, n).mean())
+    print("avg precision:", precision.narrow(0, 1, n).mean(), "avg recall:", recall.narrow(0, 1, n).mean())
 
 
 
@@ -191,5 +190,6 @@ for e in range(start_epoch + 1, start_epoch + args.epochs):
         if not args.dry_run:
             models.save(model_path, model, creation_params, e)
 
-        print("scanning dataset...")
-        train_data.rescan()
+        if train_data.rescan:
+            print("scanning dataset...")
+            train_data.rescan()
