@@ -1,18 +1,19 @@
 from models import unet, unet_full, segnet
 
 import tools.model.loss as loss
-from tools import Struct
+from tools import Struct, tensor
 
 
 import torch
+from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+import torch.nn.init as init
+import math
 
 models = {
-    "segnet" : segnet,
     "unet"   : unet,
-    "unet_full"   : unet_full
     }
 
 def without(d, key):
@@ -24,8 +25,17 @@ def create(params):
     model_type = params['model']
 
     assert model_type in models, "invalid model type"
-    return models[model_type].segmenter(**params['model_params'])
+    model = models[model_type].segmenter(**params['model_params'])
 
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+            init.xavier_uniform(m.weight.data, gain=math.sqrt(2))
+            init.constant(m.bias.data, 0.1)
+        elif isinstance(m, nn.BatchNorm2d):
+            m.weight.data.normal_(1.0, 0.02)
+            m.bias.data.fill_(0)
+
+    return model
 
 def save(path, model, model_params, epoch):
     state = Struct(epoch=epoch, params=model_params, state=model.state_dict())
@@ -45,28 +55,31 @@ def load(path):
 
 def make_loss(args, num_classes):
 
-    def loss_nll(output, labels):
-        output = F.log_softmax(output)
-        target = Variable(labels.cuda() if args.cuda else labels)
+    def var(labels):
+        return Variable(labels.cuda() if args.cuda else labels)
 
-        return F.nll_loss(output, target)
+    def loss_nll(output, labels, weights):
+        return F.nll_loss(F.log_softmax(output), var(labels))
 
 
-    def loss_dice(output, labels):
-        
-        target = loss.one_hot(labels, num_classes)
-        target = Variable(target.cuda() if args.cuda else target)
+    def loss_dice(output, labels, weights=None):
+        target = tensor.one_hot(labels, num_classes)
+        return loss.dice(output, var(target), var(weights) if weights else None)
 
-        return loss.dice(output, target)
+    def loss_jacc(output, labels, weights=None):
+        target = tensor.one_hot(labels, num_classes)
+        return loss.jacc(output, var(target), var(weights) if weights else None)
 
-    def loss_both(output, labels):
-        return loss_nll(output, labels) + loss_dice(output, labels)
+    def loss_iou(output, labels, weights=None):
+        target = tensor.one_hot(labels, num_classes)
+        return loss.iou(output, var(target), var(weights) if weights else None)
 
 
     loss_functions = {
         "nll" : loss_nll,
         "dice"   : loss_dice,
-        "both" : loss_both
+        "jacc" : loss_jacc,
+        "iou" : loss_iou
         }
 
     assert args.loss in loss_functions, "invalid loss function type"

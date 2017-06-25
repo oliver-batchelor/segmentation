@@ -11,13 +11,10 @@ def get_arguments():
     parser.add_argument('--model', default='segnet',
                         help='model type to use. segnet|unet|unet_full')
 
-    parser.add_argument('--dataset', default='seg',
-                        help='dataset to load. segnet|voc')
-
     parser.add_argument('--experiment', default='experiment',
                         help='name for logged experiment on tensorboard (default None)')
     parser.add_argument('--loss', default='dice',
-                        help='loss function type to use. nll|dice')
+                        help='loss function type to use. nll|dice|jacc')
     parser.add_argument('--depth', type=int, default=4,
                         help='number of layers of depth in the model')
     parser.add_argument('--nfeatures', type=int, default=8,

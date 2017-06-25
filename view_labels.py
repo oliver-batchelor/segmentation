@@ -14,7 +14,6 @@ args = parser.parse_args()
 
 image = cv.imread(args.filename).narrow(2, 0, 1).contiguous()
 
-print(image.size())
 
 colorizer = index_map.colorizer(255)
 cv.display(colorizer(image))
