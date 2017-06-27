@@ -2,14 +2,15 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from tools.image import index_map, transforms
+from tools.image import index_map
 import tools.image.cv as cv
 
-import tools.model.loss as loss
-
+import tools.confusion as c
 
 import tools.logger as logger
 from tools import Struct
+
+from segmentation import transforms
 
 
 def softmax(output):
@@ -57,9 +58,9 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         #error = loss_func(output, norm_labels, weights)
         error = loss_func(output, norm_labels)
         inds = softmax(output)
-        confusion = loss.confusion_matrix(inds, labels, len(classes))
+        confusion = c.confusion_matrix(inds, labels, len(classes))
 
-        stats = Statistics(error, data.size(0), confusion)
+        stats = Statistics(error.data[0], data.size(0), confusion)
 
         if show:
             overlay = index_map.overlay_batches(data, inds)
@@ -108,4 +109,4 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         log.scalar(name + "/correct", total_correct, step=epoch)
 
 
-    return Struct(summarize=summarize, run=run, test=test)
+    return Struct(summarize=summarize, run=run)

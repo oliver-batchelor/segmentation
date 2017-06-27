@@ -1,7 +1,9 @@
 import torch
+from torch.autograd import Variable
+
+
+from tools import Struct, confusion
 import tools.tensor as tensor
-
-
 
 
 def flatten_targets(probs, target, weights=None):
@@ -55,16 +57,37 @@ def jacc(probs, target, weights=None):
     jacc = pt / (p2 + t2 - pt)
     return 1 - jacc.sum()/(jacc.size(0) * jacc.size(1)) # average over batch and class
 
-def confusion_matrix(pred, target, num_classes):
-    assert pred.size() == target.size(), "prediction must match target size"
-    pred = pred.view(-1)
-    target = target.view(-1)
-
-    mask = (target < num_classes).long()
-    n = num_classes * num_classes
-
-    return tensor.count_elements(pred + (target * mask * num_classes) + mask, n + 1).narrow(0, 1, n).view(num_classes, num_classes)
 
 
-def confusion_zero(n):
-    return torch.LongTensor (n, n).fill_(0)
+
+
+def make_loss(name, num_classes, cuda=True):
+
+    def var(labels):
+        return Variable(labels.cuda() if cuda else labels)
+
+    def loss_nll(output, labels, weights):
+        return F.nll_loss(F.log_softmax(output), var(labels))
+
+    def loss_dice(output, labels, weights=None):
+        target = tensor.one_hot(labels, num_classes)
+        return dice(output, var(target), var(weights) if weights else None)
+
+    def loss_jacc(output, labels, weights=None):
+        target = tensor.one_hot(labels, num_classes)
+        return jacc(output, var(target), var(weights) if weights else None)
+
+    def loss_iou(output, labels, weights=None):
+        target = tensor.one_hot(labels, num_classes)
+        return iou(output, var(target), var(weights) if weights else None)
+
+
+    loss_functions = {
+        "nll" : loss_nll,
+        "dice"   : loss_dice,
+        "jacc" : loss_jacc,
+        "iou" : loss_iou
+        }
+
+    assert name in loss_functions, "invalid loss function type"
+    return loss_functions[name]

@@ -10,18 +10,18 @@ import arguments
 import datasets.seg as dataset
 
 
-from tools.image import index_map, transforms
+from tools.image import index_map
+from segmentation import transforms
+
 import tools.image.cv as cv
-import tools.model.loss as loss
+import models.loss as loss
 
 import evaluate as evaluate
 
-import tools.logger as logger
+import tools.logger as l
 import models
 
 from tqdm import tqdm
-
-
 
 
 
@@ -69,6 +69,7 @@ def main():
 
     if args.no_crop:
         args.batch_size = 1
+    print(args)
 
     test_loader, test_data = dataset.testing(args)
     train_loader, train_data = dataset.training(args)
@@ -81,39 +82,27 @@ def main():
     output_path = os.path.join(args.log, args.name)
     model_path = os.path.join(output_path, 'model.pth')
 
+    model_params = {'num_classes':len(classes), 'input_channels':3}
     if args.load:
-        model, creation_params, start_epoch = models.load(model_path)
+        model, creation_params, start_epoch = models.load(model_path, **model_params)
         print("loaded state: ", creation_params)
 
-    print(args)
-
     if model is None:
-        model_params = {
-            'depth': args.depth,
-            'features': args.nfeatures,
-            'input_channels': 3,
-            'num_classes': len(classes)
-        }
-
-        creation_params = {
-            'model': args.model,
-            'model_params' : model_params
-        }
-
+        creation_params = models.get_params(args)
         print("creation state: ", creation_params)
-        model = models.create(creation_params)
+        model = models.create(creation_params, **model_params)
 
-    assert creation_params['model_params']['num_classes'] == len(classes), "number of classes differs in loaded model"
+    #assert creation_params['model_params']['num_classes'] == len(classes), "number of classes differs in loaded model"
 
     print("working directory: " + output_path)
-    output_path, logger = make_experiment(args.log, args.name, dry_run=args.dry_run)
+    output_path, logger = l.make_experiment(args.log, args.name, dry_run=args.dry_run)
 
 
     model = model.cuda() if args.cuda else model
 
     #optimizer = optim.Adam(model.parameters(), lr=args.lr)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    loss_func = models.make_loss(args, len(classes))
+    loss_func = loss.make_loss(args.loss, len(classes), args.cuda)
 
     eval = evaluate.module(model, loss_func, classes, log=logger, show=args.show, use_cuda=args.cuda)
 

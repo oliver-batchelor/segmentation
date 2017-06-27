@@ -3,8 +3,11 @@ import os.path
 
 from torch.utils.data import DataLoader
 
-from tools.image import transforms, loaders, index_map, cv
-from tools.dataset.flat import FlatFolder
+from tools.image import  index_map, cv
+
+from segmentation import transforms, loaders
+from segmentation.flat import FlatFolder
+
 from tools.dataset.samplers import RepeatSampler
 
 

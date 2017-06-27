@@ -63,7 +63,7 @@ class FlatFolder(data.Dataset):
 
     def __getitem__(self, index):
 
-        image, target = self.loader(self.images[index])
+        image, target = self.loader(*self.images[index])
         if self.transform is not None:
             image, target = self.transform(image, target)
 

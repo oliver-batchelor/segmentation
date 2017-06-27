@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+
+
 def segmenter(encode, decode):
 
     class Pyramid(nn.Module):
@@ -31,8 +33,7 @@ def segmenter(encode, decode):
             self.pyramid = Pyramid(features, depth)
 
         def forward(self, input):
-            output, inds = self.encode(input)
-
-            return self.decode(self.pyramid(output), input, inds)
+            output, skip = self.encode(input)
+            return self.decode(self.pyramid(output), skip)
 
     return Segmenter

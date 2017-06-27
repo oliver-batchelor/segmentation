@@ -2,25 +2,20 @@
 import argparse
 import tools.arguments as common
 
+import models
+
 def get_arguments():
     parser = argparse.ArgumentParser(description='Tree segmentation')
 
 
 
     # Model parameters
-    parser.add_argument('--model', default='segnet',
-                        help='model type to use. segnet|unet|unet_full')
 
     parser.add_argument('--experiment', default='experiment',
                         help='name for logged experiment on tensorboard (default None)')
     parser.add_argument('--loss', default='dice',
                         help='loss function type to use. nll|dice|jacc')
-    parser.add_argument('--depth', type=int, default=4,
-                        help='number of layers of depth in the model')
-    parser.add_argument('--nfeatures', type=int, default=8,
-                        help='number of features present in the first layer of the network')
 
-    parser.add_argument('--dropout', type=float, default=0, help='dropout to use at each convolution')
 
     parser.add_argument('--input', default='/storage/workspace/trees',
                         help='input image path')
@@ -30,5 +25,6 @@ def get_arguments():
 
 
     common.add(parser)
+    models.add_arguments(parser)
 
     return parser.parse_args()
