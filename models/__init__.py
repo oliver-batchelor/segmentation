@@ -12,7 +12,12 @@ from tools import Struct, tensor
 
 def add_arguments(parser):
     for name, (default, help) in model.parameters.items():
-        parser.add_argument('--' + name, default=default, type=type(default), help=help)
+
+        if(type(default) == bool):
+            action=('store_false' if default else 'store_true')
+            parser.add_argument('--' + name, default=default, type=type(default), help=help)
+        else:
+            parser.add_argument('--' + name, default=default, type=type(default), help=help)
 
 
 def get_params(args):

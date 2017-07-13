@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch.autograd import Variable
 
 
@@ -22,10 +23,8 @@ def flatten_targets(probs, target, weights=None):
 
     return probs, target, weights
 
-def weight(w, t):
-    return w * t if w else t
 
-def dice(probs, target, weights=None, size_average=False, class_average=False):
+def dice(probs, target, weights=1, size_average=False, class_average=False):
     p, t, w = flatten_targets(probs, target, weights)
 
     pt = (w * p * t).sum(2)
@@ -33,31 +32,37 @@ def dice(probs, target, weights=None, size_average=False, class_average=False):
     t2 = (w * t * t).sum(2)
 
     dice = pt / (p2 + t2)
-    n = dice.size(0) * dice.size(1)
-    return n - dice.sum() # /(dice.size(0) * dice.size(1)) # average over batch and class
+    return 1 - dice.sum() / (dice.size(0) * dice.size(1)) # average over batch and class
 
 
-def iou(probs,target, weights=None):
+def iou(probs,target, weights=1):
     p, t, w = flatten_targets(probs, target, weights)
 
-    pt = p * t
-    d = p + t - pt
+    pt = (w * p * t).sum(2)
+    p = (w * p).sum(2) + 1e-6
+    t = (w * t).sum(2)
 
-    iou = (w * pt).sum(2) / (w * d).sum(2)
+    iou = pt / (p + t - pt)
     return 1 - iou.sum()/(iou.size(0) * iou.size(1)) # average over batch and class
 
+# def iou(probs,target, weights=None):
+#     p, t, w = flatten_targets(probs, target, weights)
+#
+#     pt = p * t
+#     d = p + t - pt + 1e-6
+#
+#     iou = (w * pt).sum(2) / (w * d).sum(2)
+#     return 1 - iou.sum()/(iou.size(0) * iou.size(1)) # average over batch and class
 
-def jacc(probs, target, weights=None):
+def jacc(probs, target, weights=1):
     p, t, w = flatten_targets(probs, target, weights)
 
-    pt = weight(w, p * t).sum(2)
-    p2 = weight(w, p * p).sum(2) + 1e-6
-    t2 = weight(w, t * t).sum(2)
+    pt = (w * p * t).sum(2)
+    p2 = (w * p * p).sum(2) + 1e-6
+    t2 = (w * t * t).sum(2)
 
     jacc = pt / (p2 + t2 - pt)
     return 1 - jacc.sum()/(jacc.size(0) * jacc.size(1)) # average over batch and class
-
-
 
 
 
@@ -69,17 +74,17 @@ def make_loss(name, num_classes, cuda=True):
     def loss_nll(output, labels, weights):
         return F.nll_loss(F.log_softmax(output), var(labels))
 
-    def loss_dice(output, labels, weights=None):
+    def loss_dice(output, labels, weights):
         target = tensor.one_hot(labels, num_classes)
-        return dice(output, var(target), var(weights) if weights else None)
+        return dice(F.softmax(output), var(target), var(weights))
 
-    def loss_jacc(output, labels, weights=None):
+    def loss_jacc(output, labels, weights):
         target = tensor.one_hot(labels, num_classes)
-        return jacc(output, var(target), var(weights) if weights else None)
+        return jacc(F.softmax(output), var(target), var(weights))
 
-    def loss_iou(output, labels, weights=None):
+    def loss_iou(output, labels, weights):
         target = tensor.one_hot(labels, num_classes)
-        return iou(output, var(target), var(weights) if weights else None)
+        return iou(F.softmax(output), var(target), var(weights))
 
 
     loss_functions = {

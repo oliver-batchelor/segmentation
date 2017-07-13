@@ -6,10 +6,60 @@ import shutil
 
 from torch.utils.data import DataLoader
 
-from tools.image import transforms, loaders, index_map, cv
+from tools.image import index_map, cv
 from tools import tensor
-import tools.dataset.voc as voc
-from tools.dataset.samplers import RepeatSampler
+import datasets.voc as voc
+
+from segmentation import transforms, loaders
+
+
+
+imagesets = Struct (
+    train="Segmentation/train.txt",
+    val="Segmentation/val.txt",
+    trainval="Segmentation/trainval.txt",
+    test="Segmentation/test.txt")
+
+
+
+def train(root, loader, transform=None):
+    return VOC(root, imagesets.train, loader, transform)
+
+def validation(root, loader, transform=None):
+    return VOC(root, imagesets.validation, loader, transform)
+
+def train_validation(root, loader, transform=None):
+    return VOC(root, imagesets.train_validation, loader, transform)
+
+class VOC(data.Dataset):
+
+    def __init__(self, root, imageset, loader, transform=None):
+
+        self.root = root
+        self.transform = transform
+        self.loader = loader
+
+        with open(path.join(root, "ImageSets", imageset)) as g:
+            base_names = g.read().splitlines()
+
+        masks = path.join(root, "SegmentationClass")
+        images = path.join(root, "JPEGImages")
+
+        self.images = [(path.join(images, base + ".jpg"), path.join(masks, base + ".png")) for base in base_names ]
+
+
+
+    def __getitem__(self, index):
+        image, target = self.loader(*self.images[index])
+        if self.transform is not None:
+            image, target = self.transform(image, target)
+
+        return image, target
+
+    def __len__(self):
+        return len(self.images)
+
+
 
 
 
@@ -74,30 +124,7 @@ def to_labels(image):
     indices = image.select(2, 0) + image.select(2, 1) * 4 + image.select(2, 2) * 16
     return tensor.index(label_map, indices)
 
-
-load_rgb = loaders.load_cached(loaders.load_rgb)
-
 load_labels = lambda path: to_labels(cv.imread(path))
-load_target = loaders.load_cached(load_labels)
-
-def training(args):
-
-    crop_args = {'max_scale':1.5, 'border':10, 'squash_dev':0.1, 'rotation_dev':5}
-
-    if args.no_crop:
-        args.batch_size = 1
-
-    crop = transforms.identity if args.no_crop else transforms.random_crop((300, 300), (300, 300), **crop_args)
-
-    dataset = voc.VOC(args.input, voc.imagesets[args.imageset],
-        loader=loaders.load_both(load_rgb, load_target),
-        transform=transforms.compose([crop, transforms.adjust_colors(gamma_dev=0.1)]))
-
-
-    loader = DataLoader(dataset, num_workers=args.num_workers,
-        batch_size=args.batch_size, sampler=RepeatSampler(args.epoch_size, dataset))
-
-    return loader, dataset
 
 
 def remap_classes(classes):
@@ -127,13 +154,16 @@ def convert(input, subset, output, classes=None):
 
     remap = remap_classes(classes)
 
+    def identity(data, target):
+        return data, target
 
-    dataset = voc.VOC(args.input, subset, loader=transforms.identity)
+    dataset = voc.VOC(args.input, subset, loader=identity)
     for batch_idx, (data, target) in enumerate(dataset):
         filename = os.path.join(output, os.path.basename(data))
         maskfile =  filename + ".mask"
 
         labels = load_labels(target)
+        print(filename, labels.size())
 
         labels = remap(labels)
         if has_foreground(labels):
@@ -181,25 +211,3 @@ if __name__ == '__main__':
             f.write('\n'.join(class_names))
 
         convert(args.input, voc.imagesets[args.imageset], args.output, classes=classes)
-
-
-    else:
-        args.num_workers = 1
-        args.epoch_size = 1024
-        args.batch_size = 16
-
-        color_map = index_map.make_color_map(255)
-        loader, dataset = training(args)
-
-        remap = remap_classes(classes)
-
-        for batch_idx, (data, target) in enumerate(loader):
-            #print(index_map.default_map.size(), voc_palette.size())
-
-            target = remap(target)
-            image = index_map.overlay_batches(data, target, cols = 4, color_map=voc_palette)
-
-            print(index_map.counts(target, class_names))
-
-            if (cv.display(image.byte()) == 27):
-                break

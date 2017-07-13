@@ -23,19 +23,37 @@ def load_cached(f):
     return load
 
 def load_labels(path):
-    image = cv.imread(path).long()
+    image = cv.imread(path)
     if image.size(2) == 3:
         image = image.narrow(2, 0, 1)
 
-    return image.squeeze(2)
+    return image.squeeze(2).long()
+
+def load_weight(path):
+    image = cv.imread(path)
+    if image.size(2) == 3:
+        image = image.narrow(2, 0, 1)
+
+    return image.squeeze(2).float().div_(127)
 
 def load_rgb(path):
-    return cv.imread(path)
+    return cv.imread_color(path)
 
-def load_both(load_image, load_target):
-    assert(load_image and load_target)
 
-    def load(image_path, target_path):
-        return load_image(image_path), load_target(target_path)
 
-    return load
+def load_masked(input):
+
+    image = load_rgb(input['image'])
+    target = load_labels(input['target'])
+    weight = load_weight(input['weight']) if 'weight' in input else torch.ones(target.size()).float()
+
+    return {'image':image, 'target':target, 'weight':weight}
+
+
+def load_split(image='images', target='annotations'):
+
+    image = load_rgb(input['image'])
+    target = load_labels(input['target'])
+    weight = load_weight(input['weight']) if input['weight'] else torch.ones(target.size()).float()
+
+    return {'image':image, 'target':target, 'weight':weight}
