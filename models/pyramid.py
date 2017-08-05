@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 
-def segmenter(encode, decode, conv, growth=1.5):
+def pyramid(encode, decode, growth=1.5):
 
     class Pyramid(nn.Module):
         def __init__(self, inputs, depth):
@@ -24,19 +24,4 @@ def segmenter(encode, decode, conv, growth=1.5):
             return self.decode(output, skip)
 
 
-    class Segmenter(nn.Module):
-
-        def __init__(self, input_channels=3, output_channels=2, features=8, depth=4):
-            super().__init__()
-
-            self.conv1 = conv(input_channels, features)
-            self.conv2 = conv(features, output_channels)
-
-            self.pyramid = Pyramid(features, depth)
-
-        def forward(self, input):
-            output = self.conv1(input)
-            output = self.conv2(self.pyramid(output))
-            return output
-
-    return Segmenter
+    return Pyramid

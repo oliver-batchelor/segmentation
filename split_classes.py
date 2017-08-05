@@ -31,7 +31,7 @@ def has_foreground(labels):
     labels = labels * (labels < 255).long()
     return (labels > 0).sum() > 0
 
-def convert(input, output, classes=None):
+def convert(output, files):
 
     if not os.path.isdir(output):
         os.makedirs(output)
@@ -68,18 +68,8 @@ if __name__ == '__main__':
     assert args.input and args.output and args.classes
     print(args)
 
-    all_classes = dataset.classes(args)
+    files = masked.find_files(args.input)
 
-    class_names = ["background", *args.classes.split(",")]
-    classes = list(map(lambda name: all_classes.index(name), class_names))
-
-    if not os.path.isdir(args.output):
-        os.makedirs(args.output)
-
-    with open(os.path.join(args.output, 'classes.txt'), 'w') as f:
-        f.write('\n'.join(class_names))
-
-    dirs = [path for path in os.listdir(args.input) if os.path.isdir(path)]
 
     for path in dirs:
         convert(os.path.join(args.input, path), os.path.join(args.output, path), classes)

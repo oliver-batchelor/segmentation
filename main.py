@@ -1,11 +1,11 @@
-
+import gc
 import os
 from os import path
 
 import torch
+from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
-from tuner_utils import yellowfin
 
 from torch.autograd import Variable
 
@@ -18,11 +18,14 @@ from segmentation import transforms
 
 import tools.image.cv as cv
 import models.loss as loss
+from tools.model import io
 
 import evaluate as evaluate
 
 import tools.logger as l
-import models
+
+from models import models
+import tools.model as m
 
 
 from tqdm import tqdm
@@ -33,14 +36,22 @@ def train(model, loader, eval, optimizer):
     print("training:")
     stats = 0
     model.train()
-    for data in tqdm(loader):
+
+    with tqdm(total=len(loader) * loader.batch_size) as bar:
+        for data in loader:
+
+            optimizer.zero_grad()
+            result = eval(data)
+            result.error.backward()
+            optimizer.step()
+            stats += result.statistics
+
+            bar.update(result.statistics.size)
+
+            del result
+            gc.collect()
 
 
-        optimizer.zero_grad()
-        result = eval(data)
-        result.error.backward()
-        optimizer.step()
-        stats += result.statistics
 
     return stats
 
@@ -50,8 +61,12 @@ def test(model, loader, eval):
     stats = 0
     model.eval()
     for data in tqdm(loader):
+
         result = eval(data)
         stats += result.statistics
+
+        del result
+        gc.collect()
 
     return stats
 
@@ -69,6 +84,16 @@ def test_images(model, files, eval):
     return results
 
 
+def model_stats(model):
+    convs = 0
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+            convs += 1
+
+    parameters = sum([p.nelement() for p in model.parameters()])
+    print("Model of {} parameters, {} convolutions".format(parameters, convs))
+
+
 
 def setup_env(args, classes):
 
@@ -82,55 +107,48 @@ def setup_env(args, classes):
     print(args)
 
     start_epoch = 0
+    best = 0
 
     model = None
     output_path = os.path.join(args.log, args.name)
-    model_path = os.path.join(output_path, 'model.pth')
 
-    model_params = {'num_classes':len(classes), 'input_channels':3}
+    model_args = {'num_classes':len(classes), 'input_channels':3}
     if args.load:
-        model, creation_params, start_epoch = models.load(model_path, **model_params)
-        print("loaded state: ", creation_params)
-
-        assert model
+        model, creation_params, start_epoch, best = io.load(models, model_path, model_args)
     else:
-        creation_params = models.get_params(args)
-        print("creation state: ", creation_params)
-        model = models.create(creation_params, **model_params)
-
-
-
-
-
-    #assert creation_params['model_params']['num_classes'] == len(classes), "number of classes differs in loaded model"
+        creation_params = io.parse_params(models, args.model)
+        model = io.create(models, creation_params, model_args)
 
     print("working directory: " + output_path)
     output_path, logger = l.make_experiment(args.log, args.name, dry_run=args.dry_run, load=args.load)
 
-
     model = model.cuda() if args.cuda else model
-    print(model)
+#    print(model)
 
-    #optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    #optimizer = yellowfin.YFOptimizer(model.parameters(), lr=args.lr)
-
+    optimizer = optim.SGD(model.parameter_groups(args), lr=args.lr, momentum=args.momentum)
     loss_func = loss.make_loss(args.loss, len(classes), args.cuda)
     eval = evaluate.module(model, loss_func, classes, log=logger, show=args.show, use_cuda=args.cuda)
 
-    return Struct(model_path=model_path, output_path=output_path, logger=logger, model=model, loss_func=loss_func,
-                  optimizer=optimizer, eval=eval, start_epoch=start_epoch, creation_params=creation_params)
+    return Struct(**locals())
 
 
 def main():
 
     args = arguments.get_arguments()
 
-    test_loader, test_data = dataset.testing(args)
-    train_loader, train_data = dataset.training(args)
-
-    classes = dataset.classes(args)
+    classes, train_loader, test_loader = dataset.load(args)
     env = setup_env(args, classes)
+
+    model_stats(env.model)
+
+    def adjust_learning_rate(lr):
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+
+    def annealing_rate(epoch, max_lr=args.lr, min_lr=args.lr*0.01):
+        t = math.min(1.0, env.epoch / args.epochs)
+        return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(t * math.pi))
+
 
     if args.visualize:
         print(env.model)
@@ -141,7 +159,7 @@ def main():
 
     for e in range(env.start_epoch + 1, env.start_epoch + args.epochs):
 
-        globals = {'lr':args.lr, 'batch_size':args.batch_size, 'epoch_size':args.epoch_size}
+        globals = {'lr':args.lr}
 
         stats = train(env.model, train_loader, env.eval.run, env.optimizer)
         env.eval.summarize("train", stats, e, globals=globals)
@@ -149,13 +167,15 @@ def main():
         stats = test(env.model, test_loader, env.eval.run)
         env.eval.summarize("test", stats, e)
 
+        score = env.eval.score(stats)
 
-        if (e + 1) % args.save_interval == 0:
-            if not args.dry_run:
-                models.save(env.model_path, env.model, env.creation_params, e)
+        if not args.dry_run and score > env.best:
+            io.save(env.output_path, env.model, env.creation_params, e, score)
+            env.best = score
 
-            print("scanning dataset...")
-            train_loader, train_data = dataset.training(args)
+
+        print("scanning dataset...")
+        classes, train_loader, test_loader = dataset.load(args)
 
 if __name__ == '__main__':
     main()

@@ -8,15 +8,16 @@ import tools.tensor as tensor
 
 
 def flatten_targets(probs, target, weights=None):
+
     assert probs.size() == target.size(), "Targets must have equal size to inputs"
 
     classes = probs.size(1)
     batch = probs.size(0)
 
-    probs = probs.view(batch, classes, -1)
-    target = target.view(batch, classes, -1).float()
+    probs = probs.view(batch, classes, -1).narrow(1, 1, classes - 1)
+    target = target.view(batch, classes, -1).float().narrow(1, 1, classes - 1)
 
-    if weights:
+    if weights is not None:
         weights = weights.view(batch, 1, -1).expand_as(target)
     else:
         weights = 1
@@ -32,7 +33,7 @@ def dice(probs, target, weights=1, size_average=False, class_average=False):
     t2 = (w * t * t).sum(2)
 
     dice = pt / (p2 + t2)
-    return 1 - dice.sum() / (dice.size(0) * dice.size(1)) # average over batch and class
+    return 1 - 2 * dice.sum() / (dice.size(0) * dice.size(1)) # average over batch and class
 
 
 def iou(probs,target, weights=1):
@@ -86,12 +87,17 @@ def make_loss(name, num_classes, cuda=True):
         target = tensor.one_hot(labels, num_classes)
         return iou(F.softmax(output), var(target), var(weights))
 
+    def loss_jacc_nll(outputs, labels, weights):
+        return loss_jacc(outputs, labels, weights) + loss_nll(outputs, labels, weights)
+
+
 
     loss_functions = {
         "nll" : loss_nll,
         "dice"   : loss_dice,
         "jacc" : loss_jacc,
-        "iou" : loss_iou
+        "iou" : loss_iou,
+        "jacc_nll" : loss_jacc_nll,
         }
 
     assert name in loss_functions, "invalid loss function type"

@@ -9,13 +9,15 @@ import tools.image.cv as cv
 
 import tools.confusion as c
 
-from tools import Struct, logger
-import tools.visualize as vis
+from tools import Struct, logger, tensor
 from segmentation import transforms
+
+import gc
+
 
 
 def softmax(output):
-    _, inds = F.softmax(output).data.max(1)
+    _, inds = output.max(1)
     return inds.long().squeeze(1).cpu()
 
 
@@ -35,8 +37,8 @@ def visualize(model, input, use_cuda=False, name="model", format="svg"):
 
 
 def statistics(confusion):
-    num_labelled = confusion.float().sum(1).squeeze(1)
-    num_classified = confusion.float().sum(0).squeeze(0)
+    num_labelled = confusion.float().sum(1)
+    num_classified = confusion.float().sum(0)
     correct = confusion.float().diag()
 
     return Struct(
@@ -57,18 +59,22 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         image, labels, weights = data['image'], data['target'], data['weight']
 
         norm_data = transforms.normalize(to_cuda(image))
-        norm_labels, ignore_weight = transforms.normalize_target(to_cuda(labels), len(classes))
+        output = model(Variable(norm_data))
 
+        labels = tensor.centre_crop(labels, output.size())
+        weights = tensor.centre_crop(weights, output.size())
+
+
+        norm_labels, ignore_weight = transforms.normalize_target(to_cuda(labels), len(classes))
         weights = to_cuda(weights) * ignore_weight
 
-        output = model(Variable(norm_data))
         error = loss_func(output, norm_labels, weights)
-        inds = softmax(output)
+        inds = softmax(output.data)
 
         confusion = c.confusion_matrix(inds, labels, len(classes))
-        image_stats = sum([statistics(c.confusion_matrix(inds[i], labels[i], len(classes))) for i in range(0, image.size(0))])
+    #    image_stats = sum([statistics(c.confusion_matrix(inds[i], labels[i], len(classes))) for i in range(0, image.size(0))])
 
-        stats = Struct(error=error.data[0] * image.size(0), size=image.size(0), confusion=confusion, image=image_stats)
+        stats = Struct(error=error.data[0] * image.size(0), size=image.size(0), confusion=confusion)
 
         if show:
             overlay = index_map.overlay_batches(image, inds)
@@ -77,6 +83,8 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
 
         return Struct(error=error, output=output, prediction=inds, statistics=stats)
 
+    def score(stats):
+        return statistics(stats.confusion).iou.mean()
 
     def summarize(name, stats, epoch, globals={}):
 
@@ -90,7 +98,8 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         if(len(classes) < 10):
             print(stats.confusion / stats.size)
 
-        image = stats.image / stats.size
+        # image = stats.image / stats.size
+        image = statistics(stats.confusion)
         precision, recall, iou = image.precision, image.recall, image.iou
 
         n = len(classes)
@@ -108,9 +117,8 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
             log.scalar(prefix + "/precision", precision[i], step=epoch)
             log.scalar(prefix + "/iou", iou[i], step=epoch)
 
-
         total_correct = image.correct / stats.size
         log.scalar(name + "/correct", total_correct, step=epoch)
 
 
-    return Struct(summarize=summarize, run=run)
+    return Struct(summarize=summarize, run=run, score=score)

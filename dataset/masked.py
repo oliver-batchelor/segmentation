@@ -20,7 +20,7 @@ def training_on(files, args):
     crop_args = {'scale_range':(s * args.min_scale, s * args.max_scale), 'rotation_size': args.rotation}
 
     result_size = int(args.image_size * s)
-    crop = transforms.scale(s)  if args.no_crop else transforms.random_crop2((args.image_size, args.image_size), (result_size, result_size), **crop_args)
+    crop = transforms.scale(s)  if args.no_crop else transforms.random_crop((args.image_size, args.image_size), (result_size, result_size), **crop_args)
 
     return flat.FileList(files,
         loader=loaders.load_masked,
@@ -31,18 +31,16 @@ def testing_on(files, args):
 
     return flat.FileList(files,   loader=loaders.load_masked, transform=transforms.scale(s))
 
-
+def find_files(path):
+    return flat.find_files(path, flat.image_with_mask(flat.image_extensions))
 
 
 def dataset(args):
 
-    def find_files(path):
-        return flat.find_files(path, flat.image_with_mask(flat.image_extensions))
-
 
     classes = read_classes(os.path.join(args.input, 'train', 'classes.txt'))
 
-    train = training_on(find_files(os.path.join(args.input, "train")), args)
-    test = testing_on(find_files(os.path.join(args.input, "test")), args)
+    train = training_on(find_files(os.path.join(args.input, args.train_folder)), args)
+    test = testing_on(find_files(os.path.join(args.input, args.test_folder)), args)
 
     return classes, train, test

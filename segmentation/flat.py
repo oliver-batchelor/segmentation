@@ -23,11 +23,14 @@ def image_with_mask(extensions):
         weight_filename = filename + ".weight"
 
         if(has_extension(extensions, filename) and os.path.exists(mask_filename)):
-            return  {
+            files =  {
                 'image':  filename,
                 'target': mask_filename,
-                'weight': weight_filename if os.path.exists(weight_filename) else None
             }
+            if os.path.exists(weight_filename):
+                files['weight']  = weight_filename
+            return files
+
     return f
 
 

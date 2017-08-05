@@ -1,10 +1,10 @@
 
-from tools import cv, index_map
+from tools.image import cv, index_map
 
 from torchvision import transforms
 import argparse
 
-import tools.transforms as transforms
+#import tools.transforms as transforms
 
 parser = argparse.ArgumentParser(description='Image viewer for labelled images')
 parser.add_argument('filename', help='Image file to view')

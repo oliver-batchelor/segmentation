@@ -37,7 +37,9 @@ def load_weight(path):
     return image.squeeze(2).float().div_(127)
 
 def load_rgb(path):
-    return cv.imread_color(path)
+    img = cv.imread_color(path)
+    return img
+
 
 
 

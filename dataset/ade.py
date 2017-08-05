@@ -47,8 +47,9 @@ def dataset(args):
 
     classes = ['background', *read_classes(os.path.join(args.input, 'objectInfo150.txt'))]
 
+    training_files = find_files(args.input, "training")
 
-    train = masked.training_on(find_files(args.input, "training"), args)
+    train = masked.training_on(training_files, args)
     test = masked.testing_on(find_files(args.input, "validation"), args)
 
 

@@ -3,7 +3,9 @@ import os
 from os import path
 
 import torch
-import datasets.seg as dataset
+import dataset as dataset
+
+import dataset.masked as masked
 
 from tools import Struct
 from tools.image import index_map, cv
@@ -21,8 +23,8 @@ def test_images(model, files, eval):
     stats = 0
     for files in tqdm(files):
 
-        image = to_batch(dataset.load_rgb(files['image']))
-        labels = to_batch(dataset.load_target(files['target']))
+        image = to_batch(masked.load_rgb(files['image']))
+        labels = to_batch(masked.load_target(files['target']))
 
         data = {'image':image, 'target':labels, 'weight':torch.ones(labels.size())}
         result = eval(data)
@@ -65,16 +67,17 @@ def split_at(xs, n):
 def run():
     args = arguments.get_arguments()
 
-    test_loader, test_data = dataset.testing(args)
-    remaining_images = dataset.find_files(path.join(args.input, "train"))
+    classes, _, test_loader = dataset.load(args)
+    remaining_images = masked.find_files(path.join(args.input, "train"))
 
-    classes = dataset.classes(args)
     env = main.setup_env(args, classes)
 
     training_path = path.join(env.output_path, "images")
 
-    initial_size = 64
-    increment = 8
+    initial_size = 1
+    increment = 1
+    add_interval = 1
+
 
     def add_images(images, epoch):
         results, stats = test_images(env.model, images, env.eval.run)
@@ -87,7 +90,7 @@ def run():
 
     for e in range(1,  args.epochs):
 
-        train_loader, _ = dataset.training_on(training, args)
+        train_loader = dataset.dataloader(args, masked.training_on(training, args))
 
         stats = main.train(env.model, train_loader, env.eval.run, env.optimizer)
         env.eval.summarize("train", stats, e)
@@ -95,7 +98,7 @@ def run():
         stats = main.test(env.model, test_loader, env.eval.run)
         env.eval.summarize("test", stats, e)
 
-        if(len(remaining_images) > 0):
+        if((e % add_interval) == 0 and len(remaining_images) > 0):
             new_images, remaining_images = split_at(remaining_images, increment)
             training += add_images(new_images, e)
         e += 1

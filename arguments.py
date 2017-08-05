@@ -10,7 +10,7 @@ def dataset_args(parser):
     parser.add_argument('--min_scale', type=int, default=0.8,
                     help='minimum scaling during preprocessing')
 
-    parser.add_argument('--max_scale', type=int, default=1.2,
+    parser.add_argument('--max_scale', type=int, default=1.25,
                 help='maximum scaling during preprocessing')
 
     parser.add_argument('--rotation', type=int, default=5,
@@ -25,27 +25,37 @@ def dataset_args(parser):
                         help='train always on full size images rather than cropping')
 
 
+    parser.add_argument('--model', action='append', default=[],
+                        help='model type and sub-parameters e.g. "unet --dropout 0.1"')
+
+
     parser.add_argument('--down_scale', type=int, default=1,
                 help='down scale of image_size to test/train on')
 
     parser.add_argument('--dataset', default='masked',
                         help='dataset type options are (masked|ade)')
-    
+
+
+    parser.add_argument('--train_folder', default='train',
+                help='location of training images within dataset (default=train)')
+
+    parser.add_argument('--test_folder', default='test',
+                help='location of training images within dataset (default=test)')
+
+
 
 
 def add_arguments(parser):
     parser.add_argument('--experiment', default='experiment',
                         help='name for logged experiment on tensorboard (default None)')
-    parser.add_argument('--loss', default='dice',
+    parser.add_argument('--loss', default='jacc',
                         help='loss function type to use. nll|dice|jacc')
 
     parser.add_argument('--weight_scale', type=float, default=1.0,
                         help='scale for pixel weights (exponent)')
 
     dataset_args(parser)
-
     common.add(parser)
-    models.add_arguments(parser)
 
 
 parser = argparse.ArgumentParser(description='Tree segmentation')
