@@ -49,10 +49,13 @@ class Pretrained(nn.Module):
 
     def __init__(self, args, num_classes=2):
         super().__init__()
-        self.encoder, sizes = make_encoder(args.base_name)
+        self.encoder, encoder_sizes = make_encoder(args.base_name)
 
-        classifier = c.Conv(args.features, num_classes, 1)
-        self.decoder = nn.Sequential(c.Decoder(sizes, args.features, num_blocks=args.block_layers), classifier)
+        classifier = c.Conv(args.features, num_classes)
+
+        layers = [0, 1] + [args.block_layers] * (len(encoder_sizes) - 2)
+        self.decoder = nn.Sequential(c.Decoder(args.features, encoder_sizes, layers), classifier)
+        c.init_weights(self.decoder)
 
     def forward(self, input):
         return self.decoder(self.encoder(input))
@@ -66,9 +69,9 @@ class Pretrained(nn.Module):
 
 
 parameters = Struct(
-        features   = (16,    "hidden feature size"),
+        features     = (16,    "hidden feature size"),
         block_layers = (2,   "number of layers at each resolution"),
-        base_name  = ("resnet34", "name of pretrained resnet to use"),
+        base_name    = ("resnet34", "name of pretrained resnet to use"),
         dropout = (0, "dropout after each decoder layer")
     )
 

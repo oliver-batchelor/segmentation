@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
 
@@ -11,6 +12,8 @@ from tools.model import match_size_2d,  centre_crop
 def identity(x, **kwargs):
     return x
 
+def reverse(xs):
+    return list(reversed(xs))
 
 
 class Cascade(nn.Sequential):
@@ -35,7 +38,7 @@ class DeCascade(nn.Module):
 
     def forward(self, inputs):
         assert len(inputs) == len(self.decoders) + 1
-        input, *skips = list(reversed(inputs))
+        input, *skips = reverse(inputs)
 
         input = self.bottom(input)
 
@@ -113,20 +116,36 @@ class Decode(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, encoder_sizes, base_features, num_blocks=1, block=basic_block, scale_factor=2):
+    def __init__(self, base_features, encoder_sizes, block_sizes, block=basic_block, scale_factor=2):
         super().__init__()
 
-        sizes = list(reversed(encoder_sizes))
+        encoder_sizes, block_sizes = reverse(encoder_sizes), reverse(block_sizes)
+        depth = len(encoder_sizes)
+        assert len(block_sizes) == depth
+
         def features(i):
-            return base_features * 2 ** (len(encoder_sizes) - i - 1)
+            return base_features * 2 ** (depth - i - 1)
+
+        def make_blocks(features, size):
+            blocks = [block(features, features) for x in range(0, size)]
+            return nn.Sequential(*blocks)
 
         def layer(i):
-            n = features(i)
-            processing = nn.Sequential(*[block(n, n) for x in range(0, num_blocks)])
-            return Decode(features(i - 1), sizes[i], n, processing, scale_factor=scale_factor)
+            blocks = make_blocks(features(i), block_sizes[i])
+            return Decode(features(i - 1), encoder_sizes[i], features(i), blocks, scale_factor=scale_factor)
 
-        layers = [layer(i) for i in range(1, len(sizes))]
-        self.decoder = DeCascade(block(sizes[0], features(0)), *layers)
+        layers = [layer(i) for i in range(1, depth)]
+        bottom = nn.Sequential(Conv(encoder_sizes[0], features(0), 1), make_blocks(features(0), block_sizes[0]))
+
+        self.decoder = DeCascade(bottom, *layers)
 
     def forward(self, inputs):
         return self.decoder(inputs)
+
+
+
+def init_weights(module):
+    def f(m):
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+            init.kaiming_normal(m.weight)
+    module.apply(f)
