@@ -119,6 +119,7 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
 
         total_correct = image.correct / stats.size
         log.scalar(name + "/correct", total_correct, step=epoch)
+        log.flush()
 
 
     return Struct(summarize=summarize, run=run, score=score)

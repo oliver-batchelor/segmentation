@@ -21,7 +21,7 @@ def dataset(args):
 
 def dataloader(args, dataset):
     return DataLoader(dataset, num_workers=args.num_workers,
-        batch_size=1 if args.no_crop else args.batch_size, sampler=RepeatSampler(args.epoch_size, dataset) if args.epoch_size else RandomSampler(dataset))
+        batch_size=1 if args.no_crop else args.batch_size, sampler=RepeatSampler(args.epoch_size, len(dataset)) if args.epoch_size else RandomSampler(dataset))
 
 
 def load(args):

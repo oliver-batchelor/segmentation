@@ -7,16 +7,23 @@ import models
 
 def dataset_args(parser):
 
-    parser.add_argument('--min_scale', type=int, default=0.8,
+    parser.add_argument('--min_scale', type=float, default=1,
                     help='minimum scaling during preprocessing')
 
-    parser.add_argument('--max_scale', type=int, default=1.25,
+    parser.add_argument('--max_scale', type=float, default=1,
                 help='maximum scaling during preprocessing')
 
-    parser.add_argument('--rotation', type=int, default=5,
+    parser.add_argument('--rotation', type=float, default=0,
             help='rotation in degrees during preprocessing')
 
-    parser.add_argument('--image_size', type=int, default=360,
+    parser.add_argument('--jitter', type=float, default=0,
+            help='perspective jitter (pixels)')
+
+    parser.add_argument('--pad', type=int, default=0,
+            help='border pixels to pad preprocessing images (-ve means crop)')
+
+
+    parser.add_argument('--image_size', type=int, default=440,
                     help='size of patches to train on')
 
     parser.add_argument('--input', default='/storage/workspace/trees',
@@ -42,6 +49,12 @@ def dataset_args(parser):
     parser.add_argument('--test_folder', default='test',
                 help='location of training images within dataset (default=test)')
 
+
+    parser.add_argument('--increment', type=int, default=1,
+                    help='images to add at each interval')
+
+    parser.add_argument('--add_interval', type=int, default=1,
+                help='interval between adding new images')
 
 
 

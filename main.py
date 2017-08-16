@@ -1,5 +1,6 @@
 import gc
 import os
+import math
 from os import path
 
 import torch
@@ -84,16 +85,6 @@ def test_images(model, files, eval):
     return results
 
 
-def model_stats(model):
-    convs = 0
-    for m in model.modules():
-        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-            convs += 1
-
-    parameters = sum([p.nelement() for p in model.parameters()])
-    print("Model of {} parameters, {} convolutions".format(parameters, convs))
-
-
 
 def setup_env(args, classes):
 
@@ -119,6 +110,8 @@ def setup_env(args, classes):
         creation_params = io.parse_params(models, args.model)
         model = io.create(models, creation_params, model_args)
 
+    print("model parameters: ", creation_params)
+
     print("working directory: " + output_path)
     output_path, logger = l.make_experiment(args.log, args.name, dry_run=args.dry_run, load=args.load)
 
@@ -139,15 +132,16 @@ def main():
     classes, train_loader, test_loader = dataset.load(args)
     env = setup_env(args, classes)
 
-    model_stats(env.model)
+    io.model_stats(env.model)
 
     def adjust_learning_rate(lr):
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+        for param_group in env.optimizer.param_groups:
+            modified = lr * param_group['modifier'] if 'modifier' in param_group else lr
+            param_group['lr'] = modified
 
     def annealing_rate(epoch, max_lr=args.lr, min_lr=args.lr*0.01):
-        t = math.min(1.0, env.epoch / args.epochs)
-        return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(t * math.pi))
+        t = min(1.0, epoch / args.epochs)
+        return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(t * math.pi/2))
 
 
     if args.visualize:
@@ -157,20 +151,25 @@ def main():
         evaluate.visualize(env.model, sample_input, use_cuda=args.cuda, name=path.join(env.output_path, "model"), format="svg")
 
 
-    for e in range(env.start_epoch + 1, env.start_epoch + args.epochs):
+    for epoch in range(env.start_epoch + 1, args.epochs + 1):
 
-        globals = {'lr':args.lr}
+        lr = annealing_rate(epoch)
+        globals = {'lr': lr}
+
+        adjust_learning_rate(lr)
+        print("epoch {}, lr {}, best (mean iou) {}".format(epoch, lr, env.best))
+
 
         stats = train(env.model, train_loader, env.eval.run, env.optimizer)
-        env.eval.summarize("train", stats, e, globals=globals)
+        env.eval.summarize("train", stats, epoch, globals=globals)
 
         stats = test(env.model, test_loader, env.eval.run)
-        env.eval.summarize("test", stats, e)
+        env.eval.summarize("test", stats, epoch)
 
         score = env.eval.score(stats)
 
         if not args.dry_run and score > env.best:
-            io.save(env.output_path, env.model, env.creation_params, e, score)
+            io.save(env.output_path, env.model, env.creation_params, epoch, score)
             env.best = score
 
 

@@ -3,13 +3,13 @@ import torch.nn as nn
 
 
 
-def pyramid(encode, decode, growth=1.5):
+def pyramid(encode, decode, inc):
 
     class Pyramid(nn.Module):
         def __init__(self, inputs, depth):
             super().__init__()
 
-            outputs = int(inputs * growth)
+            outputs = int(inputs + inc)
 
             self.encode = encode(inputs, outputs)
             self.inner = Pyramid(outputs,  depth - 1) if depth > 0 else None

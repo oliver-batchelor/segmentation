@@ -16,12 +16,31 @@ def reverse(xs):
     return list(reversed(xs))
 
 
+
+class Lift(nn.Module):
+    def __init__(self, f, **kwargs):
+        super().__init__()
+
+        self.kwargs = kwargs
+        self.f = f
+
+    def forward(self, input):
+        return self.f(input, **self.kwargs)
+
+class Identity(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x
+
+
 class Cascade(nn.Sequential):
     def __init__(self, *args):
         super(Cascade, self).__init__(*args)
 
     def forward(self, input):
-        outputs = [input]
+        outputs = []
 
         for module in self._modules.values():
             input = module(input)
@@ -37,6 +56,7 @@ class DeCascade(nn.Module):
         self.decoders = nn.Sequential(*decoders)
 
     def forward(self, inputs):
+
         assert len(inputs) == len(self.decoders) + 1
         input, *skips = reverse(inputs)
 
@@ -69,15 +89,6 @@ class Residual(nn.Sequential):
 
 
 
-class Lift(nn.Module):
-    def __init__(self, f, **kwargs):
-        super().__init__()
-
-        self.kwargs = kwargs
-        self.f = f
-
-    def forward(self, input):
-        return self.f(input, **self.kwargs)
 
 
 class Conv(nn.Module):
@@ -94,54 +105,94 @@ class Conv(nn.Module):
         return self.conv(self.activation(self.norm(inputs)))
 
 
-def basic_block(in_size, out_size):
-    unit = nn.Sequential(Conv(in_size, out_size, activation=identity), Conv(out_size, out_size))
-    return Residual(unit)
+def dropout(p=0.0):
+    return nn.Dropout2d(p=p) if p > 0 else Lift(identity)
+
+def basic_block(p=0):
+    def f(in_size, out_size):
+        unit = nn.Sequential(Conv(in_size, out_size, activation=identity), dropout(p=p), Conv(out_size, out_size), nn.BatchNorm2d(out_size))
+        return Residual(unit)
+    return f
+
+
+def bottleneck_block(p=0):
+    def f(in_size, out_size):
+        unit = nn.Sequential(Conv(in_size, out_size//4, 1, activation=identity), dropout(p=p), Conv(out_size//4, out_size, 3), nn.BatchNorm2d(out_size))
+        return Residual(unit)
+    return f
+
+def reducer(in_size, out_size, depth=3):
+    def interp(i):
+        t = i / depth
+        d = out_size + int((1 - t) * (in_size - out_size))
+        return d
+
+    return nn.Sequential(*[Conv(interp(i), interp(i + 1), 1) for i in range(0, depth)])
+
+
+def unbalanced_add(x, y):
+    if x.size(1) > y.size(1):
+        x = x.narrow(0, 1, y.size(1))
+    elif y.size(1) < x.size(1):
+        y = y.narrow(0, 1, x.size(1))
+
+    return x + y
+
 
 
 class Decode(nn.Module):
     def __init__(self, in_size, skip_size, out_size, module, scale_factor=2):
         super().__init__()
-        self.reduce = Conv(skip_size + in_size, out_size, 1)
+        self.reduce = reducer(skip_size + in_size, out_size)
         self.scale_factor = scale_factor
         self.module = module
 
     def forward(self, inputs, skip):
         upscaled = F.upsample(inputs, scale_factor=self.scale_factor)
         upscaled = match_size_2d(upscaled, skip)
+
         inputs = torch.cat([upscaled, skip], 1)
         inputs = self.reduce(inputs)
 
         return self.module(inputs)
 
 
-class Decoder(nn.Module):
-    def __init__(self, base_features, encoder_sizes, block_sizes, block=basic_block, scale_factor=2):
-        super().__init__()
 
-        encoder_sizes, block_sizes = reverse(encoder_sizes), reverse(block_sizes)
-        depth = len(encoder_sizes)
-        assert len(block_sizes) == depth
+def make_blocks(block, features, size):
+    return [block(features, features) for x in range(0, size)]
 
-        def features(i):
-            return base_features * 2 ** (depth - i - 1)
+def decoder(base_features, inc_features, encoder_sizes, block_sizes, decode=Decode, block=basic_block(p=0), scale_factor=2):
+    encoder_sizes, block_sizes = reverse(encoder_sizes), reverse(block_sizes)
+    depth = len(block_sizes)
+    assert len(encoder_sizes) == depth
 
-        def make_blocks(features, size):
-            blocks = [block(features, features) for x in range(0, size)]
-            return nn.Sequential(*blocks)
+    def features(i):
+        return base_features + inc_features * (depth - i - 1)
 
-        def layer(i):
-            blocks = make_blocks(features(i), block_sizes[i])
-            return Decode(features(i - 1), encoder_sizes[i], features(i), blocks, scale_factor=scale_factor)
+    def layer(i):
+        blocks = nn.Sequential(*make_blocks(block, features(i), block_sizes[i]))
+        return decode(features(i - 1), encoder_sizes[i], features(i), blocks, scale_factor=scale_factor)
 
-        layers = [layer(i) for i in range(1, depth)]
-        bottom = nn.Sequential(Conv(encoder_sizes[0], features(0), 1), make_blocks(features(0), block_sizes[0]))
+    layers = [layer(i) for i in range(1, depth)]
+    bottom = nn.Sequential(Conv(encoder_sizes[0], features(0), 1), *make_blocks(block, features(0), block_sizes[0]))
 
-        self.decoder = DeCascade(bottom, *layers)
+    return DeCascade(bottom, *layers)
 
-    def forward(self, inputs):
-        return self.decoder(inputs)
+def encoder(base_features, inc_features, block_sizes, block=basic_block(p=0), scale_factor=2):
+    depth = len(block_sizes)
 
+    def features(i):
+        return base_features + inc_features * i
+
+    def layer(i):
+        blocks = make_blocks(block, features(i), block_sizes[i] - 1)
+        initial = block(features(i - 1), features(i))
+        return nn.Sequential(nn.AvgPool2d(scale_factor, scale_factor), initial, *blocks)
+
+    top = nn.Sequential(*make_blocks(block, features(0), block_sizes[0]))
+
+    sizes = [features(i) for i in range(0, depth)]
+    return Cascade(top, *[layer(i) for i in range(1, depth)]), sizes
 
 
 def init_weights(module):

@@ -28,6 +28,5 @@ if __name__ == '__main__':
         image = index_map.overlay_batches(data['image'], data['target'], cols = 1 if args.test else 4, alpha=0.4)
         print(data['image'].size(), index_map.counts(data['target'], class_names))
 
-
         if (cv.display(image.byte()) == 27):
             break

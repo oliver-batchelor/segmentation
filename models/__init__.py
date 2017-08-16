@@ -1,8 +1,14 @@
-from models import pretrained, unet
 
-import tools.model as m
 
-models = {
-    'unet':unet,
-    'pretrained':pretrained
-}
+from models import pretrained, unet, ladder
+
+
+def merge(*dicts):
+    m = {}
+    for d in dicts:
+        m.update(d)
+
+    return m
+
+
+models = merge(pretrained.models, unet.models, ladder.models)

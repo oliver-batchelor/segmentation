@@ -11,11 +11,13 @@ from models.pyramid import pyramid
 import math
 
 parameters = Struct(
-        depth      = (5,    "number of layers of depth in the model"),
-        features   = (16,    "hidden feature size"),
-        growth     = (2.0, "feature growth between layers"),
+        depth      = (6,    "number of layers of depth in the model"),
+
+        base  = (16,    "hidden feature size"),
+        inc   = (16,    "hidden feature size"),
+
         dropout    = (0.05,  "dropout level between convolutions"),
-        kernel     = (5,    "size of kernels"),
+        kernel     = (3,    "size of kernels"),
         skip_convs = (False,    "residual convolutions in skip layer")
     )
 
@@ -96,17 +98,17 @@ def create(args, num_classes=2, input_channels=3):
             inputs = torch.cat([upscaled, skip], 1)
             return self.drop(self.conv2(self.conv1(inputs)))
 
-    Pyramid = pyramid(Encode, Decode, args.growth)
+    Pyramid = pyramid(Encode, Decode, args.inc)
 
     class Segmenter(nn.Module):
 
         def __init__(self):
             super().__init__()
 
-            self.conv1 = Conv(input_channels, args.features)
-            self.conv2 = nn.Conv2d(args.features, num_classes, 3, padding=1)
+            self.conv1 = Conv(input_channels, args.base)
+            self.conv2 = nn.Conv2d(args.base, num_classes, 3, padding=1)
 
-            self.pyramid = Pyramid(args.features, args.depth)
+            self.pyramid = Pyramid(args.base, args.depth)
 
         def forward(self, input):
             output = self.conv1(input)
@@ -130,3 +132,6 @@ def create(args, num_classes=2, input_channels=3):
     model = Segmenter()
     model.apply(init_weights)
     return model
+
+
+models = {'unet' : Struct(create=create, parameters=parameters)}

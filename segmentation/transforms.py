@@ -40,7 +40,7 @@ def compose(fs):
 def identity(image):
     return image
 
-default_statistics = Struct(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229])
+default_statistics = Struct(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 def normalize(image, mean=default_statistics.mean, std=default_statistics.mean):
     image = image.float().div_(255)
@@ -56,12 +56,26 @@ def normalize_target(target, num_classes, weights=None):
     return target.long() * mask.long(), weights
 
 
-def warp_affine(data, t, dest_size, border_fill=None):
+def warp_affine(data, t, dest_size, border_mode=cv.border.replicate, border_fill=default_statistics.mean):
     image, target, weight = data['image'], data['target'], data['weight']
 
-    image = cv.warpAffine(image, t, dest_size, flags = cv.inter.cubic, borderMode = cv.border.replicate)
+    border_fill = [x * 255 for x in border_fill]
+
+    image = cv.warpAffine(image, t, dest_size, flags = cv.inter.cubic, borderMode = border_mode, borderValue = border_fill)
     target = cv.warpAffine(target, t, dest_size, flags = cv.inter.nearest, borderMode = cv.border.constant, borderValue = 255)
     weight = cv.warpAffine(weight, t, dest_size, flags = cv.inter.nearest, borderMode = cv.border.constant, borderValue = 0)
+
+    return {'image':image, 'target':target.long(), 'weight':weight}
+
+
+def warp_perspective(data, t, dest_size, border_mode=cv.border.replicate, border_fill=default_statistics.mean):
+    image, target, weight = data['image'], data['target'], data['weight']
+
+    border_fill = [x * 255 for x in border_fill]
+
+    image = cv.warpPerspective(image, t, dest_size, flags = cv.inter.cubic, borderMode = border_mode, borderValue = border_fill)
+    target = cv.warpPerspective(target, t, dest_size, flags = cv.inter.nearest, borderMode = cv.border.constant, borderValue = 255)
+    weight = cv.warpPerspective(weight, t, dest_size, flags = cv.inter.nearest, borderMode = cv.border.constant, borderValue = 0)
 
     return {'image':image, 'target':target.long(), 'weight':weight}
 
@@ -98,8 +112,6 @@ def centre_on(dest_size, background=(0, 0, 0)):
     return f
 
 
-border_fill = [255 * x for x in default_statistics.mean]
-
 
 
 def scale(scale):
@@ -116,8 +128,31 @@ def scale(scale):
         return do_scale
 
 
-def random_crop(input_crop, dest_size, scale_range=(1, 1), rotation_size=0):
+
+def random_transform(size, scale_range=(1, 1), rotation_size=0, perspective_jitter=0, pad=0, flip=True):
+    t = transforms.random_affine(size, size, translation=0, scale_range=scale_range, rotation_size=rotation_size, flip=flip)
+    if perspective_jitter > 0:
+        t = t.mm(transforms.random_perspective_jitter(size, perspective_jitter))
+
+    return transforms.fit_transform(size, t, pad=pad)
+
+
+def input_size(data):
+    image = data['image']
+    return (image.size(1), image.size(0))
+
+
+def crop_augmentation(crop_size, scale_range=(1, 1), rotation_size=0, perspective_jitter=0, pad=0, flip=True, border_mode=cv.border.replicate, border_fill=default_statistics.mean):
     def crop(data):
-        t = transforms.make_affine_crop(data['image'].size(), input_crop, dest_size, scale_range, rotation_size)
-        return warp_affine(data, t, dest_size, border_fill = border_fill)
+        t, dest_size = random_transform(input_size(data), scale_range, rotation_size, perspective_jitter, flip=flip, pad=pad)
+        x, y = transforms.random_region(dest_size, crop_size)
+        t = transforms.translation(-x, -y).mm(t)
+        return warp_perspective(data, t, crop_size, border_mode=border_mode, border_fill=border_fill)
+    return crop
+
+
+def fit_augmentation(scale_range=(1, 1), rotation_size=0, perspective_jitter=0, border_mode=cv.border.replicate, flip=True, border_fill=default_statistics.mean, pad=0):
+    def crop(data):
+        t, dest_size = random_transform(input_size(data), scale_range, rotation_size, perspective_jitter, flip=flip, pad=pad)
+        return warp_perspective(data, t, dest_size, border_mode=border_mode, border_fill=border_fill)
     return crop
