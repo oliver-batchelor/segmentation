@@ -3,7 +3,7 @@ import os.path
 import json
 import torch
 
-
+import random
 from segmentation import transforms, loaders, flat
 
 
@@ -44,8 +44,13 @@ def testing_on(files, args):
 
     return flat.FileList(files,   loader=loaders.load_masked, transform=transforms.scale(s))
 
-def find_files(path):
-    return flat.find_files(path, flat.image_with_mask(flat.image_extensions))
+def find_files(path, limit=0):
+    files = flat.find_files(path, flat.image_with_mask(flat.image_extensions))
+    if limit > 0:
+        random.shuffle(files)
+        files = files[:limit]
+
+    return files
 
 
 def dataset(args):
@@ -53,7 +58,7 @@ def dataset(args):
 
     class_names, _, _ = read_config(os.path.join(args.input, 'config.json'))
 
-    train = training_on(find_files(os.path.join(args.input, args.train_folder)), args)
+    train = training_on(find_files(os.path.join(args.input, args.train_folder), args.limit), args)
     test = testing_on(find_files(os.path.join(args.input, args.test_folder)), args)
 
     return class_names, train, test

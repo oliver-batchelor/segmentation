@@ -50,6 +50,10 @@ def dataset_args(parser):
                 help='location of training images within dataset (default=test)')
 
 
+
+    parser.add_argument('--limit', type=int, default=0,
+                    help='limit number of images used for training')
+
     parser.add_argument('--increment', type=int, default=1,
                     help='images to add at each interval')
 

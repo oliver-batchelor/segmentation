@@ -35,18 +35,46 @@ class Identity(nn.Module):
         return x
 
 
+def cascade(modules, input):
+    outputs = []
+
+    for module in modules:
+        input = module(input)
+        outputs.append(input)
+
+    return outputs
+
 class Cascade(nn.Sequential):
     def __init__(self, *args):
         super(Cascade, self).__init__(*args)
 
     def forward(self, input):
-        outputs = []
+        return cascade(self._modules.values(), input)
 
-        for module in self._modules.values():
-            input = module(input)
-            outputs.append(input)
+class MultiCascade(nn.Module):
+    def __init__(self, cascade, levels=None, depth=None):
+        super(MultiCascade, self).__init__()
 
-        return outputs
+        self.depth = depth or len(modules)
+        self.levels = levels or len(modules)
+
+        self.cascade = cascade
+
+    def forward(self, input):
+        modules = list(self.cascade._modules.values())
+        outputs = [[] for x in range(0, self.depth)]
+
+        for i in range(0, self.levels):
+            output = cascade(modules[:self.depth - i], input)
+            input  = F.avg_pool2d(input, 2, 2, ceil_mode=True)
+
+            for j in range(0, len(output)):
+                print(i + j, outputs[j].size())
+                outputs[j + i] += [output[j]]
+
+        return [torch.cat(output, 1) for output in outputs if len(output) > 0]
+
+
 
 class DeCascade(nn.Module):
     def __init__(self, bottom, *decoders):

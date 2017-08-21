@@ -111,14 +111,14 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         print('avg precision {:10.2f} '.format(precision.narrow(0, 1, n - 1).mean() * 100))
         print('avg recall    {:10.2f} '.format(recall.narrow(0, 1, n - 1).mean() * 100))
 
-        for i in range(0, n):
+        for i in range(1, n):
             prefix = name + "/classes/" + classes[i]
-            log.scalar(prefix + "/recall", recall[i], step=epoch)
-            log.scalar(prefix + "/precision", precision[i], step=epoch)
+            # log.scalar(prefix + "/recall", recall[i], step=epoch)
+            # log.scalar(prefix + "/precision", precision[i], step=epoch)
             log.scalar(prefix + "/iou", iou[i], step=epoch)
 
         total_correct = image.correct / stats.size
-        log.scalar(name + "/correct", total_correct, step=epoch)
+        # log.scalar(name + "/correct", total_correct, step=epoch)
         log.flush()
 
 
