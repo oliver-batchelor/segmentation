@@ -88,7 +88,7 @@ class DeCascade(nn.Module):
         assert len(inputs) == len(self.decoders) + 1
         input, *skips = reverse(inputs)
 
-        input = self.bottom(input)
+        input = self.bottom(input.contiguous())
 
         for module, skip in zip(self.decoders._modules.values(), skips):
             input = module(input, skip)

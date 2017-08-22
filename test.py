@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    assert (args.image or image.path) and not (args.image and image.path), "required: image filename or path for batch processing"
+    assert (args.image or args.batch) and not (args.image and args.batch), "required: image filename or path for batch processing"
 
 def softmax(output, dim=1):
     _, inds = F.softmax(output).data.max(dim)
@@ -42,7 +42,7 @@ def write(image, extension, path):
 
 
 model_args = {'num_classes':2, 'input_channels':3}
-model, creation_params, start_epoch, best = io.load(m.models, model_path, model_args)
+model, creation_params, start_epoch, best = io.load(m.models, args.model, model_args)
 
 print("loaded model: ", creation_params)
 
@@ -80,8 +80,7 @@ def eval(image_path, save=False, show=False):
 
         for i in range(0, output.size(0)):
             norm_features = norm_output[i] * 255
-            write(features.view(*features.size(), 1), ".jpg", path.join(save, "class{}.jpg".format(i)))
-
+            write(norm_features.view(*norm_features.size(), 1), ".jpg", path.join(save, "class{}.jpg".format(i)))
 
         print("wrote outputs into directory: " + save)
 
@@ -96,5 +95,5 @@ elif args.batch:
 
     for f in files:
         base = os.path.basename(f)
-        save = os.path.join(args.save, base) if args.save or None
-        eval(f, save, args.show)
+        save = os.path.join(args.save, base) if args.save else None
+        eval(f, save + ".model", args.show)

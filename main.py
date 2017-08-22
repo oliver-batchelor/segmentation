@@ -105,7 +105,7 @@ def setup_env(args, classes):
 
     model_args = {'num_classes':len(classes), 'input_channels':3}
     if args.load:
-        model, creation_params, start_epoch, best = io.load(models, model_path, model_args)
+        model, creation_params, start_epoch, best = io.load(models, output_path, model_args)
     else:
         creation_params = io.parse_params(models, args.model)
         model = io.create(models, creation_params, model_args)

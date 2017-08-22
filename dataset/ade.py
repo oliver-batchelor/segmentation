@@ -52,6 +52,4 @@ def dataset(args):
     train = masked.training_on(training_files, args)
     test = masked.testing_on(find_files(args.input, "validation"), args)
 
-
-
     return classes, train, test
