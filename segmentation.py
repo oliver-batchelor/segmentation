@@ -15,17 +15,19 @@ import dataset as dataset
 
 from tools import Struct
 from tools.image import index_map
+
 from segmentation import transforms
 
 import tools.image.cv as cv
-import models.loss as loss
+import models.segmentation.loss as loss
+
 from tools.model import io
 
 import evaluate as evaluate
 
 import tools.logger as l
 
-from models import models
+from models.segmentation import models
 import tools.model as m
 
 

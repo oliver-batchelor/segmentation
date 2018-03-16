@@ -55,7 +55,6 @@ def find_files(path, limit=0):
 
 def dataset(args):
 
-
     class_names, _, _ = read_config(os.path.join(args.input, 'config.json'))
 
     train = training_on(find_files(os.path.join(args.input, args.train_folder), args.limit), args)

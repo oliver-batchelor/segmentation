@@ -1,7 +1,7 @@
 #~/bin/bash
 
 rm -rf experiment
-CMD="python main.py --lr 0.1 --depth 6 --batch_size 32 --epochs 128 --log experiment"
+CMD="python segmentation.py --lr 0.1 --depth 6 --batch_size 32 --epochs 128 --log experiment"
 
 $CMD --model segnet  --nfeatures 16 --name segnet16_
 $CMD --model unet  --nfeatures 16 --name unet16_
