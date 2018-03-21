@@ -52,7 +52,7 @@ if __name__ == '__main__':
     io.model_stats(model)
 
     batches = 4
-    x = Variable(torch.FloatTensor(batches, 3, 4, 4).uniform_(0, 1))
+    x = Variable(torch.FloatTensor(batches, 3, 16, 16).uniform_(0, 1))
     out = model.cuda()(x.cuda())
 
     #[print(y.size()) for y in out]

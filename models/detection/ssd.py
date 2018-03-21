@@ -118,8 +118,9 @@ def make_boxes(sizes, width, height):
 def make_prior_boxes(prior_sizes, layer_dims):
     
     boxes = [make_boxes(boxes, *dim) for boxes, dim in zip(prior_sizes, layer_dims)]
-    return torch.cat(boxes, 0)
-    
+    return torch.cat(boxes, 0).clamp_(0, 1)
+
+
         
 
 def make_prior_sizes(min_size, max_size, num_boxes):

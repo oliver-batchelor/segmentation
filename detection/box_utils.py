@@ -69,6 +69,13 @@ def jaccard(box_a, box_b):
     union = area_a + area_b - inter
     return inter / union  # [A,B]
 
+def range_long(t):
+    r = t.new(t.size())
+    torch.arange(0, t.size(0), out=r)
+    return r
+    
+    
+    
 
 def match(threshold, truths, priors, variances, labels):
     """Match each prior box with the ground truth box of the highest jaccard
@@ -95,13 +102,10 @@ def match(threshold, truths, priors, variances, labels):
     # [1,num_priors] best ground truth for each prior
     best_truth_overlap, best_truth_idx = overlaps.max(0)
 
-    # Give priority to the ground truth boxes selecting thier best prior
-    best_truth_overlap.index_fill_(0, best_prior_idx, 1.0)  # ensure best prior
-        
-    # ensure every gt boxes matches with its prior of max overlap
-    for j in range(best_prior_idx.size(0)):  
-        best_truth_idx[best_prior_idx[j]] = j # TODO refactor: index  best_prior_idx with long tensor
-        
+    # Give priority to the ground truth boxes selecting thier best prior 
+    best_truth_overlap.index_fill_(0, best_prior_idx, 1.0)   
+    best_truth_idx.scatter_(0, best_prior_idx, range_long(best_prior_idx))
+    
     matches = truths[best_truth_idx]          # Shape: [num_priors,4]
     conf = labels[best_truth_idx] + 1         # Shape: [num_priors]
     conf[best_truth_overlap < threshold] = 0  # label as background
