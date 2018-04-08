@@ -1,6 +1,6 @@
 
 
-from models.detection import ssd
+from models import ssd
 
 def merge(*dicts):
     m = {}

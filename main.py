@@ -1,6 +1,7 @@
 import gc
 import os
 import math
+
 from os import path
 
 import torch
@@ -9,28 +10,17 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from torch.autograd import Variable
-
 import arguments
-import dataset as dataset
 
 from tools import Struct
-from tools.image import index_map
+from tools.image import cv
 
-from segmentation import transforms
-
-import tools.image.cv as cv
-import models.segmentation.loss as loss
+from models.detection import models, loss
 
 from tools.model import io
-
 import evaluate as evaluate
 
-import tools.logger as l
-
-from models.segmentation import models
-import tools.model as m
-
-
+from tools import logger
 from tqdm import tqdm
 
 
@@ -115,14 +105,14 @@ def setup_env(args, classes):
     print("model parameters: ", creation_params)
 
     print("working directory: " + output_path)
-    output_path, logger = l.make_experiment(args.log, args.name, dry_run=args.dry_run, load=args.load)
+    output_path, log = logger.make_experiment(args.log, args.name, dry_run=args.dry_run, load=args.load)
 
     model = model.cuda() if args.cuda else model
 #    print(model)
 
     optimizer = optim.SGD(model.parameter_groups(args), lr=args.lr, momentum=args.momentum)
     loss_func = loss.make_loss(args.loss, len(classes), args.cuda)
-    eval = evaluate.module(model, loss_func, classes, log=logger, show=args.show, use_cuda=args.cuda)
+    eval = evaluate.module(model, loss_func, classes, log=log, show=args.show, use_cuda=args.cuda)
 
     return Struct(**locals())
 

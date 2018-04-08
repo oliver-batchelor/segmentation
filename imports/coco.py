@@ -35,7 +35,7 @@ classes = \
 
 
 # coco_mapping = {'aeroplane':'airplane', 'diningtable':'dining table', 'motorbike':'motorcycle', 'sofa':'couch', 'tv/monitor':'tv'}
-# 
+#
 # def to_coco(name):
 #     return coco_mapping[name] if name in coco_mapping else name
 
@@ -53,7 +53,7 @@ def export_coco(input, subset = 'train2014', target_category='Train', class_inpu
     cats = coco.loadCats(cat_ids)
     class_names = [cat['name'] for cat in cats]
     class_map = {cat['id']:cat['name'] for cat in cats}
-    
+
     if classes and (not len(classes) == len(class_names)):
          for c in class_inputs:
              if not (c in class_names):
@@ -69,14 +69,14 @@ def export_coco(input, subset = 'train2014', target_category='Train', class_inpu
     def convert(id):
         info = coco.loadImgs(id)[0]
         file_name = info['file_name']
-        
+
         input_image = '%s/%s'%(subset, file_name)
         def export_ann(ann):
             x, y, w, h = ann['bbox']
             return {
               'tag':'ObjBox',
               'classId': ann['category_id'],
-              'bounds': { 
+              'bounds': {
                 'lower': [x, y],
                 'upper': [x + w, y + h]
               }
@@ -84,7 +84,7 @@ def export_coco(input, subset = 'train2014', target_category='Train', class_inpu
 
         anns = coco.loadAnns(coco.getAnnIds(id, catIds=cat_ids))
         instances = [export_ann(ann) for ann in anns]
-                
+
         return {
             'imageFile':input_image,
             'imageSize':[info['width'], info['height']],
@@ -129,11 +129,10 @@ if __name__ == '__main__':
     classes = None
     if args.restrict:
         classes = args.restrict.split(",")
-    
+
     # elif args.voc:
     #     classes = list(map(to_coco, voc.voc_classes[1:]))
 
     export = export_coco(args.input,  subset = args.subset, class_inputs = classes)
-    with open(args.output, 'w') as outfile:  
+    with open(args.output, 'w') as outfile:
         json.dump(export, outfile, sort_keys=True, indent=4, separators=(',', ': '))
-
