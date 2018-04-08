@@ -59,13 +59,16 @@ def encode(boxes, labels, anchor_boxes):
     max_ious, max_ids = ious.max(1)
 
     ious = box.iou(box.point_form(anchor_boxes), boxes)
-    boxes = boxes[max_ids]
+    boxes = box.extents_form(boxes[max_ids])
 
-    loc_xy = (boxes[:,:2]-anchor_boxes[:,:2]) / anchor_boxes[:,2:]
-    loc_wh = torch.log(boxes[:,2:]/anchor_boxes[:,2:])
-    loc_targets = torch.cat([loc_xy,loc_wh], 1)
+    boxes_pos, boxes_size = box.split(boxes)
+    anchor_pos, anchor_size = box.split(anchor_boxes)
+
+    loc_pos = (boxes_pos - anchor_pos) / anchor_size
+    loc_size = torch.log(boxes_size/anchor_size)
+    loc_targets = torch.cat([loc_pos,loc_size], 1)
+
     class_targets = 1 + labels[max_ids]
-
     class_targets[max_ious < 0.5] = 0 # negative label is 0
     ignore = (max_ious > 0.4) & (max_ious < 0.5)  # ignore ious between [0.4,0.5]
     class_targets[ignore] = -1  # mark ignored to -1
@@ -85,11 +88,11 @@ def decode(loc_preds, class_preds, anchor_boxes, nms_threshold=0.3, class_thresh
       labels: (tensor) detected class labels [k].
     '''
 
-    loc_pos, loc_sizes = box.split(loc_preds)
-    anchor_pos, anchor_sizes = box.split(anchor_boxes)
+    loc_pos, loc_size = box.split(loc_preds)
+    anchor_pos, anchor_size = box.split(anchor_boxes)
 
-    pos = loc_pos * anchor_sizes + anchor_pos
-    sizes = loc_sizes.exp() * anchor_sizes
+    pos = loc_pos * anchor_size + anchor_pos
+    sizes = loc_size.exp() * anchor_size
 
     boxes = box.point_form(torch.cat([pos, sizes], 1))
 

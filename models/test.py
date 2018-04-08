@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     print(loss.loss(loc_targets, class_targets, loc_preds, class_preds))
 
-    detections = encoder.decode_batch(images.data, loc_preds.data.zero_(), class_preds.data)
+    detections = encoder.decode_batch(images.data, loc_preds.data, class_preds.data)
 
     classes = {}
     for i, (boxes, labels, confs) in zip(images.data, detections):
