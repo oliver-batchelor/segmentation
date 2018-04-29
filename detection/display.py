@@ -1,5 +1,9 @@
+
+import torch
 from tools.image import transforms, cv
 from tools.image.index_map import default_map
+
+from tools import tensor
 
 def overlay(image, boxes, labels, confidence=None, classes=None):
     image = image.clone()
@@ -23,7 +27,7 @@ def display_batch(batch, cols=6, classes=None):
     print(classes)
 
     images = []
-    for i in zip(batch['images'], batch['boxes'], batch['labels']):
-        images.append(overlay(*i, classes=classes))
+    for b in batch:
+        images.append(overlay(b['image'], b['boxes'], b['labels'], classes=classes))
 
     return tensor.tile_batch(torch.stack(images, 0), cols)

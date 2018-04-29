@@ -39,13 +39,11 @@ classes = \
 # def to_coco(name):
 #     return coco_mapping[name] if name in coco_mapping else name
 
-cache = {}
 
-def export_coco(input, subset = 'train2014', target_category='Train', class_inputs=None):
+def export_coco(input, subset, target_category='Train', class_inputs=None):
     ann_file = '%s/annotations/instances_%s.json'%(input, subset)
 
-    coco=cache[ann_file] if ann_file in cache else COCO(ann_file)
-    cache[ann_file]=coco
+    coco=COCO(ann_file)
 
     cat_ids = coco.getCatIds(class_inputs) if class_inputs else coco.getCatIds()
     print("{} classes found".format(len(cat_ids)))
@@ -114,9 +112,6 @@ if __name__ == '__main__':
                         help='convert dataset and output to path')
 
 
-    parser.add_argument('--subset', default=None, required=True,
-                        help='subset of dataset')
-
     parser.add_argument('--restrict', default=None,
                     help='restrict to single label when converting dataset')
 
@@ -133,6 +128,15 @@ if __name__ == '__main__':
     # elif args.voc:
     #     classes = list(map(to_coco, voc.voc_classes[1:]))
 
-    export = export_coco(args.input,  subset = args.subset, class_inputs = classes)
+    subsets = [('train2017', 'Train'), ('val2017', 'Test')]
+    exports = {subset : export_coco(args.input,  subset = subset, target_category= category, class_inputs = classes) for subset, category in subsets}
+
+
+    all = {
+        'config' : exports['train2017']['config'],
+        'images' : sum([subset['images'] for subset in exports.values()], [])
+    }
+
+
     with open(args.output, 'w') as outfile:
-        json.dump(export, outfile, sort_keys=True, indent=4, separators=(',', ': '))
+        json.dump(all, outfile, sort_keys=True, indent=4, separators=(',', ': '))

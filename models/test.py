@@ -10,10 +10,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from detection import box, anchors, display
+from detection import box, anchors, display, evaluate, loss
 import argparse
 
-from models import models, loss
+from detection.models import models
 from tools.image import cv
 
 
@@ -49,36 +49,49 @@ if __name__ == '__main__':
     print(model)
     io.model_stats(model)
 
-    batches = 4
+    batches = 1
     dim = (512, 512)
 
     images = Variable(torch.FloatTensor(batches, 3, dim[1], dim[0]).uniform_(0, 1))
     loc_preds, class_preds = model.cuda()(images.cuda())
 
+
     def random_target():
-        num_boxes = random.randint(1, 10)
+        num_boxes = random.randint(1, 50)
         boxes = torch.Tensor ([random_box(dim, num_classes) for b in range(0, num_boxes)])
         boxes = box.point_form(boxes)
         labels = torch.LongTensor(num_boxes).random_(0, num_classes)
+        return (boxes, labels)
 
-        return encoder.encode(dim, boxes, labels)
-
-    targets = [random_target() for i in range(0, batches)]
+    target_boxes = [random_target() for i in range(0, batches)]
+    targets =  [encoder.encode(dim, boxes, labels) for boxes, labels in target_boxes]
 
     loc_targets = Variable(torch.stack([loc for loc, _ in targets]).cuda())
     class_targets = Variable(torch.stack([classes for _, classes in targets]).cuda())
 
-    print(loss.loss(loc_targets, class_targets, loc_preds, class_preds))
+    # print((loc_targets, class_targets), (loc_preds, class_preds))
+
+    print(loss.total_loss( (loc_targets, class_targets), (loc_preds, class_preds) ))
 
     detections = encoder.decode_batch(images.data, loc_preds.data, class_preds.data)
 
     classes = {}
-    for i, (boxes, labels, confs) in zip(images.data, detections):
+    for i, (boxes, labels, confs), (target_boxes, target_labels) in zip(images.data, detections, target_boxes):
+        score = evaluate.mAP(boxes, labels, confs, target_boxes.type_as(boxes), target_labels.type_as(labels), threshold = 0.1)
 
-        i = i.permute(1, 2, 0)
-        key = cv.display(display.overlay(i, boxes, labels, confidence=confs))
-        if(key == 27):
-            break
+        print(score)
+
+        # noise = target_boxes.clone().uniform_(-20, 30)
+        # score = evaluate.mAP(target_boxes + noise, target_labels, torch.arange(target_labels.size(0)), target_boxes, target_labels, threshold=0.5)
+        # print(score)
+
+
+
+
+        # i = i.permute(1, 2, 0)
+        # key = cv.display(display.overlay(i, boxes, labels, confidence=confs))
+        # if(key == 27):
+        #     break
 
 
 

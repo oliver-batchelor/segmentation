@@ -7,21 +7,17 @@ import models
 
 def dataset_args(parser):
 
-    parser.add_argument('--min_scale', type=float, default=1,
+    parser.add_argument('--min_scale', type=float, default=0.75,
                     help='minimum scaling during preprocessing')
 
-    parser.add_argument('--max_scale', type=float, default=1,
+    parser.add_argument('--max_scale', type=float, default=1.5,
                 help='maximum scaling during preprocessing')
 
-    parser.add_argument('--rotation', type=float, default=0,
-            help='rotation in degrees during preprocessing')
 
-    parser.add_argument('--jitter', type=float, default=0,
-            help='perspective jitter (pixels)')
 
-    parser.add_argument('--pad', type=int, default=0,
-            help='border pixels to pad preprocessing images (-ve means crop)')
 
+    parser.add_argument('--gamma', type=float, default=0.1,
+                help='variation in gamma (brightness) when training')
 
     parser.add_argument('--image_size', type=int, default=440,
                     help='size of patches to train on')

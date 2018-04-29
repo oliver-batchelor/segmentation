@@ -6,8 +6,14 @@ import torch
 from dataset.detection import DetectionDataset
 
 
+def load_file(filename):
+    with open(filename, "r") as file:
+        str = file.read()
+        return load_json(str)
+    raise Exception('load_file: file not readable ' + filename)
 
-def annotate(str):
+
+def load_json(str):
     data = json.loads(str)
     config = data['config']
 
@@ -36,7 +42,7 @@ def annotate(str):
     train = [to_image(i) for i in data['images'] if i['category'] == 'Train']
     test = [to_image(i) for i in data['images'] if i['category'] == 'Test']
 
-    return classes, DetectionDataset(train), DetectionDataset(test, True)
+    return classes, DetectionDataset(train), DetectionDataset(test)
 
 
     # train = training_on(find_files(os.path.join(args.input, args.train_folder), args.limit), args)

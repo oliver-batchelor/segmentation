@@ -1,9 +1,10 @@
 from os import path
 import random
+import math
 
 import torch
 from torch.utils.data.sampler import RandomSampler
-from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import DataLoader, default_collate
 
 from tools.dataset.flat import FlatList
 from tools.dataset.samplers import RepeatSampler
@@ -12,7 +13,7 @@ from tools.image import transforms, cv
 from tools.image.index_map import default_map
 from tools import tensor
 
-from detection import boxes, anchors
+from detection import box
 
 def load_boxes(image):
     #print(image)
@@ -23,16 +24,38 @@ def load_boxes(image):
 def random_mean(mean, magnitude):
     return mean + random.uniform(-magnitude, magnitude)
 
+
+def scale(scale):
+    def apply(d):
+        image, boxes = d['image'], d['boxes']
+
+        input_size = (image.size(1), image.size(0))
+        centre = (input_size[0] * 0.5, input_size[1] * 0.5)
+
+        t = transforms.make_affine(input_size, centre, scale=(scale, scale))
+
+        boxes = box.transform(boxes, (0, 0), (sx, sy))
+        return {**d,
+                'image': transforms.warp_affine(image, t, dest_size),
+                'boxes': boxes,
+                'labels': labels
+            }
+
+def random_log(l, u):
+    return math.exp(random.uniform(math.log(l), math.log(u)))
+
+
 def random_crop(dest_size, scale_range=(1, 1), non_uniform_scale=0, border = 0, min_overlap = 0.5):
     cw, ch = dest_size
 
     def apply(d):
-        scale = random.uniform(*scale_range)
+
+        scale = random_log(*scale_range)
         flip = random.uniform(0, 1) > 0.5
 
         sx, sy = random_mean(1, non_uniform_scale) * scale, random_mean(1, non_uniform_scale) * scale
 
-        image = d['image']
+        image, boxes = d['image'], d['boxes']
 
         input_size = (image.size(1), image.size(0))
         region_size = (cw / sx, ch / sy)
@@ -41,9 +64,6 @@ def random_crop(dest_size, scale_range=(1, 1), non_uniform_scale=0, border = 0, 
         centre = (x + region_size[0] * 0.5, y + region_size[1] * 0.5)
 
         t = transforms.make_affine(dest_size, centre, scale=(sx * (-1 if flip else 1), sy))
-
-        boxes = d['boxes']
-
         if flip:
             boxes = box.transform(boxes, (-region_size[0] -x, -y), (-sx, sy))
         else:
@@ -80,56 +100,58 @@ def transpose(dicts):
     return accum
 
 
-def load_training(args, images):
+def load_training(args, images, collate_fn=default_collate):
     return DataLoader(images,
         num_workers=args.num_workers,
         batch_size=1 if args.no_crop else args.batch_size,
-        sampler=RepeatSampler(args.epoch_size, len(images)) if args.epoch_size else RandomSampler(images))
+        sampler=RepeatSampler(args.epoch_size, len(images)) if args.epoch_size else RandomSampler(images),
+        collate_fn=collate_fn)
 
-def load_testing(args, encoder, images):
-    return DataLoader(test, num_workers=args.num_workers, batch_size=1)
-
+def load_testing(args, images):
+    return DataLoader(images, num_workers=args.num_workers, batch_size=1)
 
 
 def encode_targets(encoder):
     def f(d):
         image = d['image']
-        targets = encoder.encode(image, d['labels'], d['boxes'])
+        targets = encoder.encode(image, d['boxes'], d['labels'])
         return {
             'image':image,
-            'targets': targets
+            'targets': targets,
+            'lengths': len(d['labels'])
         }
     return f
 
+def identity(x):
+    return x
 
-def transform_training(args, encoder):
+def transform_training(args, encoder=None):
     s = 1 / args.down_scale
     result_size = int(args.image_size * s)
 
     crop = random_crop((result_size, result_size), scale_range = (s * args.min_scale, s * args.max_scale), non_uniform_scale = 0.1)
-    adjust_colors = over('image', transforms.adjust_gamma(0.1))
+    adjust_colors = over('image', transforms.adjust_gamma(args.gamma, args.gamma * 0.5))
 
-    return transforms.compose (crop, adjust_colors, encode_targets(encoder))
+    encode = identity if encoder is None else  encode_targets(encoder)
+
+    return transforms.compose (crop, adjust_colors, encode)
 
 def transform_testing(args):
     s = 1 / args.down_scale
-    return transforms.compose (transforms.scale(s))
+    return scale(s)
 
 
 
 
 class DetectionDataset:
 
-    def __init__(self, images, encoder, evaluate=False):
+    def __init__(self, images):
         self.images = images
-        self.evaluate = evaluate
 
-    def iter(self, args):
+    def train(self, args, encoder=None, collate_fn=default_collate):
+        images = FlatList(self.images, loader = load_boxes, transform = transform_training(args, encoder=encoder))
+        return load_training(args, images, collate_fn=collate_fn)
 
-        transform = transform_testing(args) if self.evaluate else transform_training(args, encoder)
-        images = FlatList(self.images, loader = load_boxes, transform = transform(args))
-
-        if self.evaluate:
-            return load_testing(args, images)
-        else:
-            return load_training(args, images)
+    def test(self, args):
+        images = FlatList(self.images, loader = load_boxes, transform = transform_testing(args))
+        return load_testing(args, images)
