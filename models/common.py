@@ -17,6 +17,29 @@ def reverse(xs):
 
 
 
+
+
+
+def map_modules(m, type, f):
+    if isinstance(m, type):
+        return f(m)
+
+    for k, v in m._modules.items():
+        m._modules[k] = map_modules(m._modules[k], type, f)
+
+    return m
+
+def replace_batchnorms(m, num_groups):
+    def convert(b):
+        g = nn.GroupNorm(num_groups, b.num_features)
+        g.weight = b.weight
+        g.bias = b.bias
+
+        return g
+
+    return map_modules(m, nn.BatchNorm2d, convert)
+
+
 class Lift(nn.Module):
     def __init__(self, f, **kwargs):
         super().__init__()
@@ -181,10 +204,12 @@ class DecodeAdd(nn.Module):
         super().__init__()
         self.scale_factor = scale_factor
         self.module = module or identity
+        #self.upscale = nn.Upsample(scale_factor=scale_factor, mode='nearest')
+        self.upscale = Upscale(features, scale_factor=scale_factor)
 
     def forward(self, inputs, skip):
         if not (inputs is None):
-            upscaled = F.upsample(inputs, scale_factor=self.scale_factor)
+            upscaled = self.upscale(inputs)
             upscaled = match_size_2d(upscaled, skip)
             return self.module(skip + upscaled)
 
@@ -196,6 +221,7 @@ class Decode(nn.Module):
         self.scale_factor = scale_factor
         self.reduce = Conv(features * 2, features)
         self.module = module or identity
+        #self.upscale = nn.Upsample(scale_factor=scale_factor, mode='nearest')
         self.upscale = Upscale(features, scale_factor=scale_factor)
 
 

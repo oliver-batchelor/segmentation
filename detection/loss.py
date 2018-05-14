@@ -6,8 +6,8 @@ from torch.autograd import Variable
 from tools import tensor
 
 
-def one_hot(labels, num_classes, create=torch.FloatTensor):
-    t = create(labels.size(0), num_classes + 1).zero_()
+def one_hot(labels, num_classes):
+    t = labels.new(labels.size(0), num_classes + 1).zero_()
     t.scatter_(1, labels.unsqueeze(1), 1)
 
     return t[:, 1:]
@@ -32,7 +32,7 @@ def focal_loss_softmax(class_target, class_pred, gamma=2, alpha=0.25, eps = 1e-6
 def focal_loss_bce(class_target, class_pred, gamma=2, alpha=0.25, eps=1e-6):
 
     num_classes = class_pred.size(1)
-    y = Variable(one_hot(class_target.data, num_classes, type(class_pred.data)))
+    y = one_hot(class_target.detach(), num_classes).float()
     y_inv = 1 - y
 
     p_t = y * class_pred + y_inv * (1 - class_pred)
@@ -63,7 +63,7 @@ def unpack(targets, predictions):
     valid_mask = valid_mask.unsqueeze(2).expand_as(class_pred)
     class_pred = class_pred[valid_mask].view(-1, num_classes)
 
-    return class_target, class_pred, loc_target, loc_pred, pos_mask.data.sum()
+    return class_target, class_pred, loc_target, loc_pred, pos_mask.detach().cpu().sum().item()
 
 
 def total_bce(targets, predictions, balance=5, gamma=2, alpha=0.25, eps=1e-6):
@@ -72,7 +72,7 @@ def total_bce(targets, predictions, balance=5, gamma=2, alpha=0.25, eps=1e-6):
     class_loss = focal_loss_bce(class_target, class_pred, gamma=gamma, alpha=alpha)
     loc_loss = F.smooth_l1_loss(loc_pred, loc_target, size_average=False)
 
-    return class_loss / (n + 1), loc_loss * balance / (n + 1), n
+    return class_loss / (n + 1.0), loc_loss * balance / (n + 1.0), n
 
 
 

@@ -48,29 +48,34 @@ def random_log(l, u):
 def random_crop(dest_size, scale_range=(1, 1), non_uniform_scale=0, border = 0, min_overlap = 0.5):
     cw, ch = dest_size
 
+
+
     def apply(d):
 
         scale = random_log(*scale_range)
         flip = random.uniform(0, 1) > 0.5
-
         sx, sy = random_mean(1, non_uniform_scale) * scale, random_mean(1, non_uniform_scale) * scale
 
-        image, boxes = d['image'], d['boxes']
+        image, labels = d['image'], d['labels']
 
         input_size = (image.size(1), image.size(0))
         region_size = (cw / sx, ch / sy)
 
-        x, y = transforms.random_region(input_size, region_size, border)
+        x, y = 0, 0
+        boxes = d['boxes'].new()
+
+        while boxes.size(0) == 0:
+            x, y = transforms.random_region(input_size, region_size, border)
+            if flip:
+                boxes = box.transform(d['boxes'], (-region_size[0] -x, -y), (-sx, sy))
+            else:
+                boxes = box.transform(d['boxes'], (-x, -y), (sx, sy))
+
+            box.clamp(boxes, (0, 0), dest_size)
+            boxes, labels = box.filter_invalid(boxes, d['labels'])
+
         centre = (x + region_size[0] * 0.5, y + region_size[1] * 0.5)
-
         t = transforms.make_affine(dest_size, centre, scale=(sx * (-1 if flip else 1), sy))
-        if flip:
-            boxes = box.transform(boxes, (-region_size[0] -x, -y), (-sx, sy))
-        else:
-            boxes = box.transform(boxes, (-x, -y), (sx, sy))
-
-        box.clamp(boxes, (0, 0), dest_size)
-        boxes, labels = box.filter_invalid(boxes, d['labels'])
 
         return {**d,
                 'image': transforms.warp_affine(image, t, dest_size),

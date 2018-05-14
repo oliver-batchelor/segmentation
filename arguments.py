@@ -7,16 +7,14 @@ import models
 
 def dataset_args(parser):
 
-    parser.add_argument('--min_scale', type=float, default=0.75,
+    parser.add_argument('--min_scale', type=float, default=2/3,
                     help='minimum scaling during preprocessing')
 
-    parser.add_argument('--max_scale', type=float, default=1.5,
+    parser.add_argument('--max_scale', type=float, default=3/2,
                 help='maximum scaling during preprocessing')
 
 
-
-
-    parser.add_argument('--gamma', type=float, default=0.1,
+    parser.add_argument('--gamma', type=float, default=0.15,
                 help='variation in gamma (brightness) when training')
 
     parser.add_argument('--image_size', type=int, default=440,

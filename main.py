@@ -30,15 +30,17 @@ def create_model(output_path, args, classes):
     model_args = {'num_classes':len(classes), 'input_channels':3}
     creation_params = io.parse_params(models, args.model)
 
+    start_epoch, best = 0, 0
+    model, encoder = None, None
+
     if args.load:
         state_dict, creation_params, start_epoch, best = io.load(output_path)
         model, encoder = io.create(models, creation_params, model_args)
         model.load_state_dict(state_dict)
-        return model, encoder, creation_params
-
     else:
         model, encoder = io.create(models, creation_params, model_args)
-        return model, encoder, creation_params
+
+    return model, encoder, creation_params, start_epoch, best
 
 
 def setup_env(args, classes):
@@ -50,11 +52,8 @@ def setup_env(args, classes):
 
     print(args)
 
-    start_epoch = 0
-    best = 0
-
     output_path = os.path.join(args.log, args.name)
-    model, encoder, creation_params = create_model(output_path, args, classes)
+    model, encoder, creation_params, start_epoch, best = create_model(output_path, args, classes)
     loss_func = total_bce
 
     print("model parameters: ", creation_params)
@@ -91,7 +90,7 @@ def main():
 
     def annealing_rate(epoch, max_lr=args.lr, min_lr=args.lr*0.01):
         t = min(1.0, epoch / args.epochs)
-        return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(t * math.pi/2))
+        return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(t * math.pi))
 
 
     for epoch in range(env.start_epoch + 1, args.epochs + 1):
@@ -100,7 +99,7 @@ def main():
         globals = {'lr': lr}
 
         adjust_learning_rate(lr)
-        print("epoch {}, lr {:.2f}, best (AP[0.5-0.95]) {:.2f}".format(epoch, lr, env.best))
+        print("epoch {}, lr {:.3f}, best (AP[0.5-0.95]) {:.2f}".format(epoch, lr, env.best))
 
         stats = train(env.model, train_data.train(args, env.encoder), eval_train(env.loss_func, var), env.optimizer)
         summarize_train("train", stats, epoch, globals=globals)

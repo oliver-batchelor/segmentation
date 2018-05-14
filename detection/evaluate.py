@@ -36,9 +36,9 @@ def mAP(boxes_pred, labels_pred, confidence, boxes_truth, labels_truth, threshol
 
     for i in range(0, n):
         iou, j = ious[i].max(0)
-        label = labels_truth[j[0]]
+        label = labels_truth[j.item()]
 
-        if iou[0] > threshold:
+        if iou.item() > threshold:
             ious[:, j] = 0  # mark truth overlaps to 0 so they won't be selected twice
 
             if labels_pred[i] == label:

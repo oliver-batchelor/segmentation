@@ -25,7 +25,7 @@ def eval_train(loss_func, var):
         class_loss, loc_loss, n = loss_func(var(targets), predictions)
         error = class_loss + loc_loss
 
-        stats = Struct(error=error.data[0], class_loss=class_loss.data[0], loc_loss=loc_loss.data[0], size=image.size(0), boxes=lengths.sum(), matches=n)
+        stats = Struct(error=error.item(), class_loss=class_loss.item(), loc_loss=loc_loss.item(), size=image.size(0), boxes=lengths.sum(), matches=n)
         return Struct(error=error, statistics=stats)
 
     return f
@@ -51,7 +51,7 @@ def eval_test(encoder, var):
         norm_data = var(normalize_batch(images))
         loc_preds, class_preds = model(norm_data)
 
-        boxes, labels, confs = encoder.decode_batch(images, loc_preds.data, class_preds.data)[0]
+        boxes, labels, confs = encoder.decode_batch(images, loc_preds.detach(), class_preds.detach())[0]
 
         thresholds = [0.5 + inc * 0.05 for inc in range(0, 10)]
         scores = torch.FloatTensor(10).zero_()
@@ -60,7 +60,7 @@ def eval_test(encoder, var):
             _, _, score = evaluate.mAP(boxes, labels, confs, target_boxes.type_as(boxes).squeeze(0), target_labels.type_as(labels).squeeze(0), threshold = iou)
             return score
 
-        if(boxes.dim() > 0):
+        if(boxes.size(0) > 0):
             scores = torch.FloatTensor([mAP(t) for t in thresholds])
 
 

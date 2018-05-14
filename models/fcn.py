@@ -13,7 +13,7 @@ import models.pretrained as pretrained
 from detection import box
 
 from models.common import Conv, Cascade, UpCascade, Residual, Parallel,  \
-            DecodeAdd, Decode, init_weights, basic_block, reduce_features
+            DecodeAdd, Decode, init_weights, basic_block, reduce_features, replace_batchnorms
 import tools.model.io as io
 
 import torch.nn.init as init
@@ -82,7 +82,7 @@ def init_weights(module):
     def f(m):
         b = -math.log((1 - 0.01)/0.01)
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
-            init.normal(m.weight, std=0.01)
+            init.normal_(m.weight, std=0.01)
             # if not (m.bias is None):
             #     init.constant(m.bias, b)
     module.apply(f)
@@ -90,18 +90,18 @@ def init_weights(module):
 
 class FCN(nn.Module):
 
-    def __init__(self, trained, extra, box_sizes, num_features=32, num_classes=2):
+    def __init__(self, trained, extra, box_sizes, features=32, num_classes=2):
         super().__init__()
 
         self.encoder = pretrained.make_cascade(trained + extra)
         self.box_sizes = box_sizes
 
         encoded_sizes = pretrained.encoder_sizes(self.encoder)
-        self.reduce = Parallel([reduce_features(size, num_features) for size in encoded_sizes])
+        self.reduce = Parallel([Conv(size, features, 1) for size in encoded_sizes])
 
         def make_decoder():
-            decoder = Residual(basic_block(num_features, num_features))
-            return Decode(num_features, decoder)
+            decoder = Residual(basic_block(features, features))
+            return Decode(features, decoder)
 
         self.decoder = UpCascade([make_decoder() for i in encoded_sizes])
 
@@ -109,9 +109,9 @@ class FCN(nn.Module):
 
         def output(n):
             return nn.Sequential(
-                Residual(basic_block(num_features, num_features)),
-                Residual(basic_block(num_features, num_features)),
-                Conv(num_features, n, bias=True))
+                Residual(basic_block(features, features)),
+                Residual(basic_block(features, features)),
+                Conv(features, n, bias=True))
 
         self.num_classes = num_classes
 
@@ -123,6 +123,7 @@ class FCN(nn.Module):
         self.new_modules = nn.ModuleList(extra + [self.reduce, self.decoder, self.classifiers, self.localisers])
 
         init_weights(self.new_modules)
+        #replace_batchnorms(self, 16)
 
 
 
@@ -158,13 +159,18 @@ box_parameters = Struct (
 
 parameters = Struct(
         base_name       = ("resnet18", "name of pretrained resnet to use"),
+        features    = (64, "fixed size features in new conv layers"),
         first   = (3, "first layer of anchor boxes, anchor size = 2^(n + 2)"),
         last    = (7, "last layer of anchor boxes")
     )
 
-def extra_layer(features):
-    convs = nn.Sequential (Conv(features, features), Conv(features, features))
-    return nn.Sequential(Residual(convs), Conv(features, features, stride=2))
+def extra_layer(inp, features):
+    return nn.Sequential(
+        *([Conv(inp, features, 1)] if inp != features else []),
+        Residual(basic_block(features, features)),
+        Residual(basic_block(features, features)),
+        Conv(features, features, stride=2)
+    )
 
 def split_at(xs, n):
     return xs[:n], xs[n:]
@@ -178,11 +184,11 @@ def anchor_sizes(start, end):
     return [box.anchor_sizes(2 ** (i + 2), aspects, scales) for i in range(start, end + 1)]
 
 
-def extend_layers(layers, start, end):
-    sizes = pretrained.layer_sizes(layers)
+def extend_layers(layers, start, end, features=32):
+    features_in = pretrained.layer_sizes(layers)[-1]
 
     num_extra = max(0, end + 1 - len(layers))
-    extra_layers = [extra_layer(sizes[-1]) for i in range(0, num_extra)]
+    extra_layers = [extra_layer(features_in if i == 0 else features, features) for i in range(0, num_extra)]
 
     initial, rest =  layers[:start + 1], layers[start + 1:end + 1:]
     return [nn.Sequential(*initial), *rest], [*extra_layers]
@@ -191,9 +197,8 @@ def extend_layers(layers, start, end):
 def create_fcn(args, num_classes=2, input_channels=3):
     assert input_channels == 3
 
-    backbone, extra = extend_layers(pretrained.get_layers(args.base_name), args.first, args.last)
+    backbone, extra = extend_layers(pretrained.get_layers(args.base_name), args.first, args.last, features=args.features)
     box_sizes = anchor_sizes(args.first, args.last)
-
 
     nms_params = {
         'nms_threshold'  : args.nms_threshold,
@@ -202,7 +207,7 @@ def create_fcn(args, num_classes=2, input_channels=3):
     }
 
 
-    return FCN(backbone, extra, box_sizes, num_classes=num_classes), \
+    return FCN(backbone, extra, box_sizes, num_classes=num_classes, features=args.features), \
            Encoder(args.first, box_sizes,
                 match_thresholds = (args.neg_match, args.pos_match),
                 nms_params = nms_params

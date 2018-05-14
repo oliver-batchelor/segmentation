@@ -73,10 +73,10 @@ if __name__ == '__main__':
 
     print(loss.total_loss( (loc_targets, class_targets), (loc_preds, class_preds) ))
 
-    detections = encoder.decode_batch(images.data, loc_preds.data, class_preds.data)
+    detections = encoder.decode_batch(images.detach(), loc_preds.detach(), class_preds.detach())
 
     classes = {}
-    for i, (boxes, labels, confs), (target_boxes, target_labels) in zip(images.data, detections, target_boxes):
+    for i, (boxes, labels, confs), (target_boxes, target_labels) in zip(images.detach(), detections, target_boxes):
         score = evaluate.mAP(boxes, labels, confs, target_boxes.type_as(boxes), target_labels.type_as(labels), threshold = 0.1)
 
         print(score)

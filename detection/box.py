@@ -66,7 +66,6 @@ def intersect(box_a, box_b):
     n = box_a.size(0)
     m = box_b.size(0)
 
-
     max_xy = torch.min(box_a[:, 2:].unsqueeze(1).expand(n, m, 2),
                        box_b[:, 2:].unsqueeze(0).expand(n, m, 2))
     min_xy = torch.max(box_a[:, :2].unsqueeze(1).expand(n, m, 2),
@@ -122,6 +121,7 @@ def nms(boxes, confs, nms_threshold=0.5, class_threshold=0.05, max_detections=10
 
     keep = []
     while order.numel() > 0 and len(keep) < max_detections:
+
         i = order[0]
 
         score = confs[i]
@@ -142,9 +142,12 @@ def nms(boxes, confs, nms_threshold=0.5, class_threshold=0.05, max_detections=10
         h = (yy2-yy1).clamp(min=0)
         inter = w * h
         ovr = inter / areas[order[1:]].clamp(max=areas[i])
-        ids = (ovr <= nms_threshold).nonzero().squeeze()
+
+        ids = (ovr <= nms_threshold).nonzero()
         if ids.numel() == 0:
             break
+
+        ids = ids.squeeze(1)
         order = order[ids+1]
 
     return torch.LongTensor(keep)
@@ -208,7 +211,6 @@ def encode(boxes, labels, anchor_boxes, match_thresholds=(0.4, 0.5)):
 
     match_neg, match_pos = match_thresholds
 
-    assert tuple(boxes.size()) == (labels.size(0), 4)
     assert match_pos >= match_neg
 
     ious = iou(point_form(anchor_boxes), boxes)
