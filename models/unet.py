@@ -13,10 +13,10 @@ import math
 parameters = Struct(
         depth      = (6,    "number of layers of depth in the model"),
 
-        base  = (16,    "hidden feature size"),
-        inc   = (16,    "hidden feature size"),
+        base  = (32,    "hidden feature size"),
+        inc   = (0,    "hidden feature size"),
 
-        dropout    = (0.05,  "dropout level between convolutions"),
+        dropout    = (0.0,  "dropout level between convolutions"),
         kernel     = (3,    "size of kernels"),
         skip_convs = (False,    "residual convolutions in skip layer")
     )

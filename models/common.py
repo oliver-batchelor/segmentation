@@ -149,7 +149,7 @@ def bottleneck_block(p=0):
         return Residual(unit)
     return f
 
-def reducer(in_size, out_size, depth=3):
+def reducer(in_size, out_size, depth=2):
     def interp(i):
         t = i / depth
         d = out_size + int((1 - t) * (in_size - out_size))
@@ -166,17 +166,26 @@ def unbalanced_add(x, y):
 
     return x + y
 
+class Upscale(nn.Module):
+    def __init__(self, features, scale_factor=2):
+        super().__init__()
+        self.conv = Conv(features, features * scale_factor**2)
+        self.scale_factor = scale_factor
 
+    def forward(self, inputs):
+        return F.pixel_shuffle(self.conv(inputs), self.scale_factor)
 
 class Decode(nn.Module):
     def __init__(self, in_size, skip_size, out_size, module, scale_factor=2):
         super().__init__()
         self.reduce = reducer(skip_size + in_size, out_size)
+        self.upscale = Upscale(in_size, scale_factor=scale_factor)
         self.scale_factor = scale_factor
         self.module = module
 
+
     def forward(self, inputs, skip):
-        upscaled = F.upsample(inputs, scale_factor=self.scale_factor)
+        upscaled = self.upscale(inputs)
         upscaled = match_size_2d(upscaled, skip)
 
         inputs = torch.cat([upscaled, skip], 1)
