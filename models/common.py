@@ -226,5 +226,5 @@ def encoder(base_features, inc_features, block_sizes, block=basic_block(p=0), sc
 def init_weights(module):
     def f(m):
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
-            init.kaiming_normal(m.weight)
+            init.kaiming_normal_(m.weight)
     module.apply(f)

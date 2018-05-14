@@ -9,8 +9,6 @@ import tools.model.io as io
 
 from tools import Struct
 
-
-
 class Ladder(nn.Module):
 
     def __init__(self, args, num_classes=2, input_channels=3):
@@ -19,8 +17,7 @@ class Ladder(nn.Module):
         classifier = c.Conv(args.base, num_classes)
         self.initial = nn.Conv2d(input_channels, args.base, 3, padding=1)
 
-        l = args.block_layers
-        layers = [1 * l, 2 * l] + [3 * l] * (args.depth - 2)
+        layers = [args.block_layers] * (args.depth + 1)
 
         block = c.basic_block(p=args.dropout)
         self.encoder, encoder_sizes = c.encoder(args.base, args.inc, layers, block=block)

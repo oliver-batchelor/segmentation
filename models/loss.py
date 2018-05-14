@@ -73,7 +73,7 @@ def make_loss(name, num_classes, cuda=True):
         return Variable(labels.cuda() if cuda else labels)
 
     def loss_nll(output, labels, weights):
-        return F.nll_loss(F.log_softmax(output), var(labels))
+        return F.nll_loss(F.log_softmax(output, 1), var(labels))
 
     def loss_dice(output, labels, weights):
         target = tensor.one_hot(labels, num_classes)
@@ -81,7 +81,7 @@ def make_loss(name, num_classes, cuda=True):
 
     def loss_jacc(output, labels, weights):
         target = tensor.one_hot(labels, num_classes)
-        return jacc(F.softmax(output), var(target), var(weights))
+        return jacc(F.softmax(output, 1), var(target), var(weights))
 
     def loss_iou(output, labels, weights):
         target = tensor.one_hot(labels, num_classes)

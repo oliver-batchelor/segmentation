@@ -23,7 +23,6 @@ from tools.model import io
 
 import evaluate as evaluate
 
-import tools.logger as l
 
 from models import models
 import tools.model as m
@@ -101,11 +100,12 @@ def setup_env(args, classes):
     best = 0
 
     model = None
-    output_path = os.path.join(args.log, args.name)
+    output_path = args.log
+    model_file = path.join(output_path, "model.pth")
 
     model_args = {'num_classes':len(classes), 'input_channels':3}
     if args.load:
-        model, creation_params, start_epoch, best = io.load(models, output_path, model_args)
+        model, creation_params, start_epoch, best = io.load(models, model_file, model_args)
     else:
         creation_params = io.parse_params(models, args.model)
         model = io.create(models, creation_params, model_args)
@@ -113,14 +113,14 @@ def setup_env(args, classes):
     print("model parameters: ", creation_params)
 
     print("working directory: " + output_path)
-    output_path, logger = l.make_experiment(args.log, args.name, dry_run=args.dry_run, load=args.load)
+    # output_path, logger = l.make_experiment(args.log, args.name, dry_run=args.dry_run, load=args.load)
 
     model = model.cuda() if args.cuda else model
 #    print(model)
 
     optimizer = optim.SGD(model.parameter_groups(args), lr=args.lr, momentum=args.momentum)
     loss_func = loss.make_loss(args.loss, len(classes), args.cuda)
-    eval = evaluate.module(model, loss_func, classes, log=logger, show=args.show, use_cuda=args.cuda)
+    eval = evaluate.module(model, loss_func, classes, show=args.show, use_cuda=args.cuda)
 
     return Struct(**locals())
 
@@ -169,7 +169,7 @@ def main():
         score = env.eval.score(stats)
 
         if not args.dry_run and score > env.best:
-            io.save(env.output_path, env.model, env.creation_params, epoch, score)
+            io.save(env.model_file, env.model, env.creation_params, epoch, score)
             env.best = score
 
 

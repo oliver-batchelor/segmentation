@@ -9,7 +9,7 @@ import tools.image.cv as cv
 
 import tools.confusion as c
 
-from tools import Struct, logger, tensor
+from tools import Struct, tensor
 from segmentation import transforms
 
 import gc
@@ -41,16 +41,17 @@ def statistics(confusion):
     num_classified = confusion.float().sum(0)
     correct = confusion.float().diag()
 
+
     return Struct(
         precision = correct / num_classified.clamp(min=1),
         recall = correct / num_labelled.clamp(min=1),
 
         # -correct because the intersection is counted twice in num_classified + num_labelled
         iou = correct / (num_classified + num_labelled - correct).clamp(min=1),
-        correct = correct.sum() / confusion.sum()
+        correct = correct.sum().item() / confusion.sum().item()
     )
 
-def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Null()):
+def module(model, loss_func, classes, use_cuda=False, show=False, log=None):
 
     def to_cuda(t):
         return t.cuda() if use_cuda else t
@@ -74,7 +75,7 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         confusion = c.confusion_matrix(inds, labels, len(classes))
     #    image_stats = sum([statistics(c.confusion_matrix(inds[i], labels[i], len(classes))) for i in range(0, image.size(0))])
 
-        stats = Struct(error=error.data[0] * image.size(0), size=image.size(0), confusion=confusion)
+        stats = Struct(error=error.item() * image.size(0), size=image.size(0), confusion=confusion)
 
         if show:
             overlay = index_map.overlay_batches(image, inds)
@@ -89,10 +90,10 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
     def summarize(name, stats, epoch, globals={}):
 
         avg_loss = stats.error / stats.size
-        log.scalar(name + "/loss", avg_loss, step=epoch)
-
-        for k, v in globals.items():
-            log.scalar(name + "/" + k, v, step=epoch)
+        # log.scalar(name + "/loss", avg_loss, step=epoch)
+        #
+        # for k, v in globals.items():
+        #     log.scalar(name + "/" + k, v, step=epoch)
 
         print(name + ' epoch: {}\tLoss: {:.6f}'.format(epoch, avg_loss))
         if(len(classes) < 10):
@@ -111,15 +112,15 @@ def module(model, loss_func, classes, use_cuda=False, show=False, log=logger.Nul
         print('avg precision {:10.2f} '.format(precision.narrow(0, 1, n - 1).mean() * 100))
         print('avg recall    {:10.2f} '.format(recall.narrow(0, 1, n - 1).mean() * 100))
 
-        for i in range(1, n):
-            prefix = name + "/classes/" + classes[i]
-            # log.scalar(prefix + "/recall", recall[i], step=epoch)
-            # log.scalar(prefix + "/precision", precision[i], step=epoch)
-            log.scalar(prefix + "/iou", iou[i], step=epoch)
+        # for i in range(1, n):
+        #     prefix = name + "/classes/" + classes[i]
+        #     # log.scalar(prefix + "/recall", recall[i], step=epoch)
+        #     # log.scalar(prefix + "/precision", precision[i], step=epoch)
+        #     log.scalar(prefix + "/iou", iou[i], step=epoch)
 
         total_correct = image.correct / stats.size
         # log.scalar(name + "/correct", total_correct, step=epoch)
-        log.flush()
+        # log.flush()
 
 
     return Struct(summarize=summarize, run=run, score=score)
