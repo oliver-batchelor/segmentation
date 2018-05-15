@@ -27,5 +27,5 @@ Or classes/images from the COCO/Pascal VOC dataset can be imported from scripts 
   `--show`, show results of evaluating the model in training (sanity check)
 
 # Evaluate a model on new image(s):
-  `python test.py --batch /path/to/images --model log/model.pth --save results_path (and/or --show)`  
+  `python test.py --batch /path/to/images --model log/model.pth --save results_path` (and/or `--show`)  
   `python test.py --image /my/image.jpg --model log/model.pth --show`
