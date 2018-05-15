@@ -23,9 +23,12 @@ Or classes/images from the COCO/Pascal VOC dataset can be imported from scripts 
 
 ## Common options:
   `--load`, load from a previous checkpoint and cointunue training
+
   `--model`, specify model and model parameters (use quotes)
+
   `--show`, show results of evaluating the model in training (sanity check)
 
 # Evaluate a model on new image(s):
   `python test.py --batch /path/to/images --model log/model.pth --save results_path (and/or --show)`
+
   `python test.py --image /my/image.jpg --model log/model.pth --show`
