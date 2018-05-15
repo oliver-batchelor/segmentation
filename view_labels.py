@@ -13,7 +13,4 @@ parser.add_argument('filename', help='Image file to view')
 args = parser.parse_args()
 
 image = cv.imread(args.filename).narrow(2, 0, 1).contiguous()
-
-
-colorizer = index_map.colorizer(255)
-cv.display(colorizer(image))
+cv.display(index_map.colorize(image, index_map.default_map))

@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch', default=None, help='path to load all images')
 
 
-    parser.add_argument('--model', default='trees/pretrained/model.pth', help='path of model to use')
+    parser.add_argument('--model', required=True, help='path of model to use')
     parser.add_argument('--save', help='save result to file with name (or directory with name)')
 
     parser.add_argument('--show', action='store_true', default=False, help='display outputs')
@@ -30,6 +30,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     assert (args.image or args.batch) and not (args.image and args.batch), "required: image filename or path for batch processing"
+    assert (args.save or args.show), "required: either --save or --show (or both)"
 
 def softmax(output, dim=1):
     _, inds = F.softmax(output).data.max(dim)
@@ -96,4 +97,4 @@ elif args.batch:
     for f in files:
         base = os.path.basename(f)
         save = os.path.join(args.save, base) if args.save else None
-        eval(f, save + ".model", args.show)
+        eval(f, save, args.show)

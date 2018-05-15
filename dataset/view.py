@@ -19,14 +19,14 @@ if __name__ == '__main__':
     args.batch_size = 1 if args.no_crop else 16
     args.weight_scale = 1
 
-
     class_names, train, test = dataset.load(args)
     loader = test if args.test else train
 
     print(class_names)
     for data in loader:
-        image = index_map.overlay_batches(data['image'], data['target'], cols = 1 if args.test else 4, alpha=0.4)
+
         print(data['image'].size(), index_map.counts(data['target'], class_names))
+        image = index_map.overlay_batches(data['image'], data['target'], cols = 1 if args.test else 4, alpha=0.4)
 
         if (cv.display(image.byte()) == 27):
             break
